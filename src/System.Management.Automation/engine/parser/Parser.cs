@@ -4229,7 +4229,6 @@ namespace System.Management.Automation.Language
             //G
             //G  property-member:
             //G      member-attribute-list:opt  variable
-            //G      member-attribute-list:opt  variable  '='  expression   // To be removed
             //G
             //G  member-attribute-list:
             //G      member-attribute
@@ -4423,7 +4422,7 @@ namespace System.Management.Automation.Language
             if (token.Kind == TokenKind.Identifier)
             {
                 SkipToken();
-                var functionDefinition = MethodDeclarationRule(token, interfaceName, staticToken != null) as FunctionDefinitionAst;
+                var functionDefinition = AbstractMethodDeclarationRule(token, interfaceName, staticToken != null) as FunctionDefinitionAst;
 
                 if (functionDefinition == null)
                 {
@@ -5467,6 +5466,80 @@ namespace System.Management.Automation.Language
             {
                 SetTokenizerMode(TokenizerMode.Command);
                 ScriptBlockAst scriptBlock = ScriptBlockRule(lCurly, false, baseCtorCallStatement);
+                var result = new FunctionDefinitionAst(ExtentOf(functionNameToken, scriptBlock),
+                    /*isFilter:*/false, /*isWorkflow:*/false, functionNameToken, parameters, scriptBlock);
+
+                return result;
+            }
+            finally
+            {
+                SetTokenizerMode(oldTokenizerMode);
+            }
+        }
+
+        private StatementAst AbstractMethodDeclarationRule(Token functionNameToken, string interfaceName, bool isStaticMethod)
+        {
+            //G  abstract-method-statement:
+            //G      new-lines:opt   function-name   function-parameter-declaration
+            //G
+            //G  function-name:
+            //G      command-argument
+
+            var functionName = functionNameToken.Text;
+            List<ParameterAst> parameters;
+            Token lParen = this.PeekToken();
+
+            IScriptExtent endErrorStatement = null;
+            Token rParen = null;
+
+            if (lParen.Kind == TokenKind.LParen)
+            {
+                parameters = this.FunctionParameterDeclarationRule(out endErrorStatement, out rParen);
+            }
+            else
+            {
+                this.ReportIncompleteInput(After(functionNameToken),
+                    nameof(ParserStrings.MissingMethodParameterList),
+                    ParserStrings.MissingMethodParameterList);
+                parameters = new List<ParameterAst>();
+            }
+
+            bool isCtor = functionName.Equals(interfaceName, StringComparison.OrdinalIgnoreCase);
+            List<ExpressionAst> baseCtorCallParams = null;
+            Token baseToken = null;
+            IScriptExtent baseCallLastExtent = null;
+            TokenizerMode oldTokenizerMode;
+            if (isCtor)
+            {
+                endErrorStatement = functionNameToken.Extent;
+                ReportError(endErrorStatement, nameof(ParserStrings.UnexpectedCtorDeclaration), ParserStrings.UnexpectedCtorDeclaration);
+            }
+
+            Token lCurly = NextToken();
+            if (lCurly.Kind == TokenKind.LCurly)
+            {
+                // ErrorRecovery: If there is an opening curly, error out
+
+                UngetToken(lCurly);
+                if (endErrorStatement == null)
+                {
+                    endErrorStatement = ExtentFromFirstOf(rParen, functionNameToken);
+                    ReportIncompleteInput(After(endErrorStatement),
+                        nameof(ParserStrings.UnexpectedFunctionBody),
+                        ParserStrings.UnexpectedFunctionBody);
+                }
+            }
+
+            if (endErrorStatement != null)
+            {
+                return new ErrorStatementAst(ExtentOf(functionNameToken, endErrorStatement), parameters);
+            }
+
+            oldTokenizerMode = _tokenizer.Mode;
+            try
+            {
+                SetTokenizerMode(TokenizerMode.Command);
+                ScriptBlockAst scriptBlock = ScriptBlockRule(lCurly, false, null);
                 var result = new FunctionDefinitionAst(ExtentOf(functionNameToken, scriptBlock),
                     /*isFilter:*/false, /*isWorkflow:*/false, functionNameToken, parameters, scriptBlock);
 
