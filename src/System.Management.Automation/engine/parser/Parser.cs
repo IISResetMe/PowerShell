@@ -4443,10 +4443,6 @@ namespace System.Management.Automation.Language
                 {
                     attributes |= MethodAttributes.Static;
                 }
-                if (hiddenToken != null)
-                {
-                    attributes |= MethodAttributes.Hidden;
-                }
                 return new FunctionMemberAst(ExtentOf(startExtent, functionDefinition), functionDefinition, typeConstraint, attributeList, attributes);
             }
 
@@ -5505,9 +5501,6 @@ namespace System.Management.Automation.Language
             }
 
             bool isCtor = functionName.Equals(interfaceName, StringComparison.OrdinalIgnoreCase);
-            List<ExpressionAst> baseCtorCallParams = null;
-            Token baseToken = null;
-            IScriptExtent baseCallLastExtent = null;
             TokenizerMode oldTokenizerMode;
             if (isCtor)
             {
@@ -5524,7 +5517,7 @@ namespace System.Management.Automation.Language
                 if (endErrorStatement == null)
                 {
                     endErrorStatement = ExtentFromFirstOf(rParen, functionNameToken);
-                    ReportIncompleteInput(After(endErrorStatement),
+                    ReportError(After(endErrorStatement),
                         nameof(ParserStrings.UnexpectedFunctionBody),
                         ParserStrings.UnexpectedFunctionBody);
                 }
