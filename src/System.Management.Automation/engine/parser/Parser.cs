@@ -4369,9 +4369,11 @@ namespace System.Management.Automation.Language
                 var assignToken = PeekToken();
                 if (assignToken.Kind == TokenKind.Equals)
                 {
-                    SkipToken();
-                    SkipNewlines();
-                    initialValueAst = ExpressionRule();
+                    ReportError(
+                        token.Extent,
+                        nameof(ParserStrings.AssignmentStatementNotSupportedInDataSection),
+                        ParserStrings.AssignmentStatementNotSupportedInDataSection,
+                        token.Text);
                 }
 
 #if SUPPORT_PUBLIC_PRIVATE
@@ -4382,10 +4384,6 @@ namespace System.Management.Automation.Language
                 if (staticToken != null)
                 {
                     attributes |= PropertyAttributes.Static;
-                }
-                if (hiddenToken != null)
-                {
-                    attributes |= PropertyAttributes.Hidden;
                 }
 
                 var endExtent = initialValueAst != null ? initialValueAst.Extent : varToken.Extent;
