@@ -4062,44 +4062,44 @@ namespace System.Management.Automation.Language
             return new DoWhileStatementAst(extent, label, condition, body);
         }
 
-        private StatementAst InterfaceDefinitionRule(List<AttributeBaseAst> customAttributes, Token classToken)
+        private StatementAst InterfaceDefinitionRule(List<AttributeBaseAst> customAttributes, Token interfaceToken)
         {
-            //G  class-statement:
-            //G      attribute-list:opt   'class'   new-lines:opt   class-name   new-lines:opt  '{'   class-member-list   '}'
-            //G      attribute-list:opt   'class'   new-lines:opt   class-name   new-lines:opt  ':'  base-type-list  '{'  new-lines:opt  class-member-list:opt  '}'
+            //G  interface-statement:
+            //G      attribute-list:opt   'interface'   new-lines:opt   interface-name   new-lines:opt  '{'   interface-member-list   '}'
+            //G      attribute-list:opt   'interface'   new-lines:opt   interface-name   new-lines:opt  ':'  base-type-list  '{'  new-lines:opt  interface-member-list:opt  '}'
             //G
-            //G  class-name:
+            //G  interface-name:
             //G      simple-name
             //G
             //G  base-type-list:
             //G      new-lines:opt   type-name   new-lines:opt
-            //G      base-class-list  ','   new-lines:opt   type-name   new-lines:opt
+            //G      base-type-list  ','   new-lines:opt   type-name   new-lines:opt
             //G
-            //G  class-member-list:
-            //G      class-member  new-lines:opt
-            //G      class-member-list   class-member
+            //G  interface-member-list:
+            //G      interface-member  new-lines:opt
+            //G      interface-member-list   interface-member
 
             SkipNewlines();
-            Token classNameToken;
-            var name = SimpleNameRule(out classNameToken);
+            Token interfaceNameToken;
+            var name = SimpleNameRule(out interfaceNameToken);
             if (name == null)
             {
-                ReportIncompleteInput(After(classToken),
+                ReportIncompleteInput(After(interfaceToken),
                     nameof(ParserStrings.MissingNameAfterKeyword),
                     ParserStrings.MissingNameAfterKeyword,
-                    classToken.Text);
-                return new ErrorStatementAst(classToken.Extent);
+                    interfaceToken.Text);
+                return new ErrorStatementAst(interfaceToken.Extent);
             }
 
-            // Class name token represents a name of type, not a member. Highlight it as a type name.
-            classNameToken.TokenFlags &= ~TokenFlags.MemberName;
-            classNameToken.TokenFlags |= TokenFlags.TypeName;
+            // Interface name token represents a name of type, not a member. Highlight it as a type name.
+            interfaceNameToken.TokenFlags &= ~TokenFlags.MemberName;
+            interfaceNameToken.TokenFlags |= TokenFlags.TypeName;
 
             SkipNewlines();
 
             // handle inheritance constraint.
             var oldTokenizerMode = _tokenizer.Mode;
-            var superClassesList = new List<TypeConstraintAst>();
+            var extendedInterfacesList = new List<TypeConstraintAst>();
             try
             {
                 SetTokenizerMode(TokenizerMode.Signature);
@@ -4108,13 +4108,13 @@ namespace System.Management.Automation.Language
                 {
                     this.SkipToken();
                     SkipNewlines();
-                    ITypeName superClass;
+                    ITypeName extendedInterface;
                     Token unused;
                     Token commaToken = null;
                     while (true)
                     {
-                        superClass = this.TypeNameRule(allowAssemblyQualifiedNames: false, firstTypeNameToken: out unused);
-                        if (superClass == null)
+                        extendedInterface = this.TypeNameRule(allowAssemblyQualifiedNames: false, firstTypeNameToken: out unused);
+                        if (extendedInterface == null)
                         {
                             ReportIncompleteInput(After(ExtentFromFirstOf(commaToken, colonToken)),
                                 nameof(ParserStrings.TypeNameExpected),
@@ -4122,7 +4122,7 @@ namespace System.Management.Automation.Language
                             break;
                         }
 
-                        superClassesList.Add(new TypeConstraintAst(superClass.Extent, superClass));
+                        extendedInterfacesList.Add(new TypeConstraintAst(extendedInterface.Extent, extendedInterface));
                         SkipNewlines();
                         commaToken = this.PeekToken();
                         if (commaToken.Kind == TokenKind.Comma)
@@ -4143,12 +4143,12 @@ namespace System.Management.Automation.Language
                     // ErrorRecovery: If there is no opening curly, assume it hasn't been entered yet and don't consume anything.
 
                     UngetToken(lCurly);
-                    var lastElement = (superClassesList.Count > 0) ? (Ast)superClassesList[superClassesList.Count - 1] : name;
+                    var lastElement = (extendedInterfacesList.Count > 0) ? (Ast)extendedInterfacesList[extendedInterfacesList.Count - 1] : name;
                     ReportIncompleteInput(After(lastElement),
                         nameof(ParserStrings.MissingTypeBody),
                         ParserStrings.MissingTypeBody,
-                        classToken.Kind.Text());
-                    return new ErrorStatementAst(ExtentOf(classToken, lastElement), superClassesList);
+                        interfaceToken.Kind.Text());
+                    return new ErrorStatementAst(ExtentOf(interfaceToken, lastElement), extendedInterfacesList);
                 }
 
                 IScriptExtent lastExtent = lCurly.Extent;
@@ -4191,9 +4191,9 @@ namespace System.Management.Automation.Language
 
                 var startExtent = customAttributes != null && customAttributes.Count > 0
                                       ? customAttributes[0].Extent
-                                      : classToken.Extent;
+                                      : interfaceToken.Extent;
                 var extent = ExtentOf(startExtent, lastExtent);
-                var classDefn = new TypeDefinitionAst(extent, name.Value, customAttributes == null ? null : customAttributes.OfType<AttributeAst>(), members, TypeAttributes.Class, superClassesList);
+                var classDefn = new TypeDefinitionAst(extent, name.Value, customAttributes == null ? null : customAttributes.OfType<AttributeAst>(), members, TypeAttributes.Class, extendedInterfacesList);
                 if (customAttributes != null && customAttributes.OfType<TypeConstraintAst>().Any())
                 {
                     if (nestedAsts == null)
