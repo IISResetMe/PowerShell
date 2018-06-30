@@ -4157,7 +4157,7 @@ namespace System.Management.Automation.Language
                 List<MemberAst> members = new List<MemberAst>();
                 List<Ast> astsOnError = null;
 
-                while ((member = ClassMemberRule(name.Value, out astsOnError)) != null || astsOnError != null)
+                while ((member = InterfaceMemberRule(name.Value, out astsOnError)) != null || astsOnError != null)
                 {
                     if (member != null)
                     {
@@ -4216,6 +4216,254 @@ namespace System.Management.Automation.Language
             {
                 SetTokenizerMode(oldTokenizerMode);
             }
+        }
+
+        private MemberAst InterfaceMemberRule(string interfaceName, out List<Ast> astsOnError)
+        {
+            //G  interface-member:
+            //G      method-member
+            //G      property-member
+            //G
+            //G  method-member:
+            //G      member-attribute-list:opt function-statement           // To be changed
+            //G
+            //G  property-member:
+            //G      member-attribute-list:opt  variable
+            //G      member-attribute-list:opt  variable  '='  expression   // To be removed
+            //G
+            //G  member-attribute-list:
+            //G      member-attribute
+            //G      member-attribute-list  member-attribute
+            //G
+            //G  member-attribute:
+            //G      attribute
+            //G      'static'
+
+            IScriptExtent startExtent = null;
+            var attributeList = new List<AttributeAst>();
+            TypeConstraintAst typeConstraint = null;
+            bool scanningAttributes = true;
+            Token staticToken = null;
+            Token hiddenToken = null;
+            Token token = null;
+            object lastAttribute = null;
+            astsOnError = null;
+#if SUPPORT_PUBLIC_PRIVATE
+// Public/private not yet supported
+            Token publicToken = null;
+            Token privateToken = null;
+#endif
+
+            while (scanningAttributes)
+            {
+                SkipNewlines();
+
+                var attribute = AttributeRule();
+                if (attribute != null)
+                {
+                    lastAttribute = attribute;
+                    if (startExtent == null)
+                    {
+                        startExtent = attribute.Extent;
+                    }
+
+                    var attributeAst = attribute as AttributeAst;
+                    if (attributeAst != null)
+                    {
+                        ReportError(attribute.Extent, nameof(ParserStrings.AttributeNotAllowedOnDeclaration), ParserStrings.AttributeNotAllowedOnDeclaration);
+                    }
+                    else if (typeConstraint == null)
+                    {
+                        typeConstraint = (TypeConstraintAst)attribute;
+                    }
+                    else
+                    {
+                        ReportError(attribute.Extent, nameof(ParserStrings.TooManyTypes), ParserStrings.TooManyTypes);
+                    }
+                    continue;
+                }
+
+                token = PeekToken();
+                if (startExtent == null)
+                {
+                    startExtent = token.Extent;
+                }
+
+                switch (token.Kind)
+                {
+#if SUPPORT_PUBLIC_PRIVATE
+                case TokenKind.Public:
+                    if (publicToken != null)
+                    {
+                        ReportError(token.Extent,
+                            nameof(ParserStrings.DuplicateQualifier),
+                            ParserStrings.DuplicateQualifier,
+                            token.Text);
+                    }
+                    if (privateToken != null)
+                    {
+                        ReportError(token.Extent,
+                            nameof(ParserStrings.ModifiersCannotBeCombined),
+                            ParserStrings.ModifiersCannotBeCombined,
+                            privateToken.Text,
+                            token.Text);
+                    }
+                    publicToken = token;
+                    SkipToken();
+                    break;
+
+                case TokenKind.Private:
+                    if (privateToken != null)
+                    {
+                        ReportError(token.Extent,
+                            nameof(ParserStrings.DuplicateQualifier),
+                            ParserStrings.DuplicateQualifier,
+                            token.Text);
+                    }
+                    if (publicToken != null)
+                    {
+                        ReportError(token.Extent,
+                            nameof(ParserStrings.ModifiersCannotBeCombined),
+                            ParserStrings.ModifiersCannotBeCombined,
+                            publicToken.Text,
+                            token.Text);
+                    }
+                    privateToken = token;
+                    SkipToken();
+                    break;
+#endif
+
+                    case TokenKind.Hidden:
+                        ReportError(token.Extent,
+                            nameof(ParserStrings.HiddenAttributeNotSupported),
+                            ParserStrings.HiddenAttributeNotSupported,
+                            token.Text);
+                        break;
+
+                    case TokenKind.Static:
+                        if (staticToken != null)
+                        {
+                            ReportError(token.Extent,
+                                nameof(ParserStrings.DuplicateQualifier),
+                                ParserStrings.DuplicateQualifier,
+                                token.Text);
+                        }
+                        staticToken = token;
+                        lastAttribute = token;
+                        SkipToken();
+                        break;
+
+                    default:
+                        scanningAttributes = false;
+                        break;
+                }
+            }
+
+            if (token.Kind == TokenKind.Variable)
+            {
+                SkipToken();
+
+                var varToken = token as VariableToken;
+
+                ExpressionAst initialValueAst = null;
+                var assignToken = PeekToken();
+                if (assignToken.Kind == TokenKind.Equals)
+                {
+                    SkipToken();
+                    SkipNewlines();
+                    initialValueAst = ExpressionRule();
+                }
+
+#if SUPPORT_PUBLIC_PRIVATE
+                PropertyAttributes attributes = privateToken != null ? PropertyAttributes.Private : PropertyAttributes.Public;
+#else
+                PropertyAttributes attributes = PropertyAttributes.Public;
+#endif
+                if (staticToken != null)
+                {
+                    attributes |= PropertyAttributes.Static;
+                }
+                if (hiddenToken != null)
+                {
+                    attributes |= PropertyAttributes.Hidden;
+                }
+
+                var endExtent = initialValueAst != null ? initialValueAst.Extent : varToken.Extent;
+                Token terminatorToken = PeekToken();
+                if (terminatorToken.Kind != TokenKind.NewLine && terminatorToken.Kind != TokenKind.Semi && terminatorToken.Kind != TokenKind.RCurly)
+                {
+                    ReportIncompleteInput(After(endExtent),
+                        nameof(ParserStrings.MissingPropertyTerminator),
+                        ParserStrings.MissingPropertyTerminator);
+                }
+                SkipNewlinesAndSemicolons();
+
+                // Include the semicolon in the extent but not newline or rcurly as that will look weird, e.g. if an error is reported on the full extent
+                if (terminatorToken.Kind == TokenKind.Semi)
+                {
+                    endExtent = terminatorToken.Extent;
+                }
+
+                if (!String.IsNullOrEmpty(varToken.Name))
+                {
+                    return new PropertyMemberAst(ExtentOf(startExtent, endExtent), varToken.Name,
+                        typeConstraint, attributeList, attributes, initialValueAst);
+                }
+                else
+                {
+                    // Incompleted input like:
+                    // class foo { $private: }
+                    // Error message already emitted by tokenizer ScanVariable
+
+                    RecordErrorAsts(attributeList, ref astsOnError);
+                    RecordErrorAsts(typeConstraint, ref astsOnError);
+                    RecordErrorAsts(initialValueAst, ref astsOnError);
+                    return null;
+                }
+            }
+
+            if (token.Kind == TokenKind.Identifier)
+            {
+                SkipToken();
+                var functionDefinition = MethodDeclarationRule(token, interfaceName, staticToken != null) as FunctionDefinitionAst;
+
+                if (functionDefinition == null)
+                {
+                    // TODO: better error recovery - shouldn't assume this was the last class member
+                    Diagnostics.Assert(ErrorList.Count > 0, "Should be an error if we don't have a function");
+                    SyncOnError(false, TokenKind.RCurly);
+                    RecordErrorAsts(attributeList, ref astsOnError);
+                    RecordErrorAsts(typeConstraint, ref astsOnError);
+                    return null;
+                }
+
+#if FALSE
+                MethodAttributes attributes = privateToken != null ? MethodAttributes.Private : MethodAttributes.Public;
+#else
+                MethodAttributes attributes = MethodAttributes.Public;
+#endif
+                if (staticToken != null)
+                {
+                    attributes |= MethodAttributes.Static;
+                }
+                if (hiddenToken != null)
+                {
+                    attributes |= MethodAttributes.Hidden;
+                }
+                return new FunctionMemberAst(ExtentOf(startExtent, functionDefinition), functionDefinition, typeConstraint, attributeList, attributes);
+            }
+
+            if (lastAttribute != null)
+            {
+                // We have the start of a member, but didn't see a variable or 'def'.
+                ReportIncompleteInput(After(ExtentFromFirstOf(lastAttribute)),
+                    nameof(ParserStrings.IncompleteMemberDefinition),
+                    ParserStrings.IncompleteMemberDefinition);
+                RecordErrorAsts(attributeList, ref astsOnError);
+                RecordErrorAsts(typeConstraint, ref astsOnError);
+            }
+
+            return null;
         }
 
         private StatementAst ClassDefinitionRule(List<AttributeBaseAst> customAttributes, Token classToken)
