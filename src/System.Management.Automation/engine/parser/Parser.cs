@@ -2056,7 +2056,7 @@ namespace System.Management.Automation.Language
                     statement = DynamicKeywordStatementRule(token, keywordData);
                     break;
                 case TokenKind.Interface:
-                    statement = ClassDefinitionRule(attributes, token);
+                    statement = InterfaceDefinitionRule(attributes, token);
                     break;
                 case TokenKind.Class:
                     statement = ClassDefinitionRule(attributes, token);
@@ -4060,6 +4060,162 @@ namespace System.Management.Automation.Language
                 return new DoUntilStatementAst(extent, label, condition, body);
             }
             return new DoWhileStatementAst(extent, label, condition, body);
+        }
+
+        private StatementAst InterfaceDefinitionRule(List<AttributeBaseAst> customAttributes, Token classToken)
+        {
+            //G  class-statement:
+            //G      attribute-list:opt   'class'   new-lines:opt   class-name   new-lines:opt  '{'   class-member-list   '}'
+            //G      attribute-list:opt   'class'   new-lines:opt   class-name   new-lines:opt  ':'  base-type-list  '{'  new-lines:opt  class-member-list:opt  '}'
+            //G
+            //G  class-name:
+            //G      simple-name
+            //G
+            //G  base-type-list:
+            //G      new-lines:opt   type-name   new-lines:opt
+            //G      base-class-list  ','   new-lines:opt   type-name   new-lines:opt
+            //G
+            //G  class-member-list:
+            //G      class-member  new-lines:opt
+            //G      class-member-list   class-member
+
+            SkipNewlines();
+            Token classNameToken;
+            var name = SimpleNameRule(out classNameToken);
+            if (name == null)
+            {
+                ReportIncompleteInput(After(classToken),
+                    nameof(ParserStrings.MissingNameAfterKeyword),
+                    ParserStrings.MissingNameAfterKeyword,
+                    classToken.Text);
+                return new ErrorStatementAst(classToken.Extent);
+            }
+
+            // Class name token represents a name of type, not a member. Highlight it as a type name.
+            classNameToken.TokenFlags &= ~TokenFlags.MemberName;
+            classNameToken.TokenFlags |= TokenFlags.TypeName;
+
+            SkipNewlines();
+
+            // handle inheritance constraint.
+            var oldTokenizerMode = _tokenizer.Mode;
+            var superClassesList = new List<TypeConstraintAst>();
+            try
+            {
+                SetTokenizerMode(TokenizerMode.Signature);
+                Token colonToken = PeekToken();
+                if (colonToken.Kind == TokenKind.Colon)
+                {
+                    this.SkipToken();
+                    SkipNewlines();
+                    ITypeName superClass;
+                    Token unused;
+                    Token commaToken = null;
+                    while (true)
+                    {
+                        superClass = this.TypeNameRule(allowAssemblyQualifiedNames: false, firstTypeNameToken: out unused);
+                        if (superClass == null)
+                        {
+                            ReportIncompleteInput(After(ExtentFromFirstOf(commaToken, colonToken)),
+                                nameof(ParserStrings.TypeNameExpected),
+                                ParserStrings.TypeNameExpected);
+                            break;
+                        }
+
+                        superClassesList.Add(new TypeConstraintAst(superClass.Extent, superClass));
+                        SkipNewlines();
+                        commaToken = this.PeekToken();
+                        if (commaToken.Kind == TokenKind.Comma)
+                        {
+                            this.SkipToken();
+                            this.SkipNewlines();
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                Token lCurly = NextToken();
+                if (lCurly.Kind != TokenKind.LCurly)
+                {
+                    // ErrorRecovery: If there is no opening curly, assume it hasn't been entered yet and don't consume anything.
+
+                    UngetToken(lCurly);
+                    var lastElement = (superClassesList.Count > 0) ? (Ast)superClassesList[superClassesList.Count - 1] : name;
+                    ReportIncompleteInput(After(lastElement),
+                        nameof(ParserStrings.MissingTypeBody),
+                        ParserStrings.MissingTypeBody,
+                        classToken.Kind.Text());
+                    return new ErrorStatementAst(ExtentOf(classToken, lastElement), superClassesList);
+                }
+
+                IScriptExtent lastExtent = lCurly.Extent;
+                List<Ast> nestedAsts = null;
+                MemberAst member;
+                List<MemberAst> members = new List<MemberAst>();
+                List<Ast> astsOnError = null;
+
+                while ((member = ClassMemberRule(name.Value, out astsOnError)) != null || astsOnError != null)
+                {
+                    if (member != null)
+                    {
+                        members.Add(member);
+                        lastExtent = member.Extent;
+                    }
+                    if (astsOnError != null && astsOnError.Count > 0)
+                    {
+                        if (nestedAsts == null)
+                        {
+                            nestedAsts = new List<Ast>();
+                        }
+                        nestedAsts.AddRange(astsOnError);
+                        lastExtent = astsOnError.Last().Extent;
+                    }
+                }
+
+                var rCurly = NextToken();
+                if (rCurly.Kind != TokenKind.RCurly)
+                {
+                    UngetToken(rCurly);
+                    ReportIncompleteInput(After(lCurly),
+                        rCurly.Extent,
+                        nameof(ParserStrings.MissingEndCurlyBrace),
+                        ParserStrings.MissingEndCurlyBrace);
+                }
+                else
+                {
+                    lastExtent = rCurly.Extent;
+                }
+
+                var startExtent = customAttributes != null && customAttributes.Count > 0
+                                      ? customAttributes[0].Extent
+                                      : classToken.Extent;
+                var extent = ExtentOf(startExtent, lastExtent);
+                var classDefn = new TypeDefinitionAst(extent, name.Value, customAttributes == null ? null : customAttributes.OfType<AttributeAst>(), members, TypeAttributes.Class, superClassesList);
+                if (customAttributes != null && customAttributes.OfType<TypeConstraintAst>().Any())
+                {
+                    if (nestedAsts == null)
+                    {
+                        nestedAsts = new List<Ast>();
+                    }
+                    //no need to report error since the error is reported in method StatementRule
+                    nestedAsts.AddRange(customAttributes.OfType<TypeConstraintAst>());
+                    nestedAsts.Add(classDefn);
+                }
+
+                if (nestedAsts != null && nestedAsts.Count > 0)
+                {
+                    return new ErrorStatementAst(extent, nestedAsts);
+                }
+
+                return classDefn;
+            }
+            finally
+            {
+                SetTokenizerMode(oldTokenizerMode);
+            }
         }
 
         private StatementAst ClassDefinitionRule(List<AttributeBaseAst> customAttributes, Token classToken)
