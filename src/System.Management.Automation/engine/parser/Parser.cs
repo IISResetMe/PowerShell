@@ -2055,6 +2055,9 @@ namespace System.Management.Automation.Language
                     DynamicKeyword keywordData = DynamicKeyword.GetKeyword(token.Text);
                     statement = DynamicKeywordStatementRule(token, keywordData);
                     break;
+                case TokenKind.Interface:
+                    statement = ClassDefinitionRule(attributes, token);
+                    break;
                 case TokenKind.Class:
                     statement = ClassDefinitionRule(attributes, token);
                     break;
