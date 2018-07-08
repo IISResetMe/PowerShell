@@ -1470,6 +1470,9 @@ ModuleVersion : Version of module to import. If used, ModuleName must represent 
   <data name="UnexpectedCtorDeclaration" xml:space="preserve">
     <value>Constructors are not allowed in this context</value>
   </data>
+  <data name="AssignmentStatementNotSupportedInDeclaration" xml:space="preserve">
+    <value>Assignment statements are not allowed in interface declarations</value>
+  </data>
   <data name="UnexpectedFunctionBody" xml:space="preserve">
     <value>An abstract method cannot have a function body</value>
   </data>
