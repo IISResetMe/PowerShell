@@ -963,7 +963,11 @@ namespace System.Management.Automation.Language
                     | Reflection.TypeAttributes.AnsiClass 
                     | Reflection.TypeAttributes.AutoLayout;
 
-                _typeBuilder = module.DefineType(typeName, typeAttributes | Reflection.TypeAttributes.Public,);
+                _typeBuilder = module.DefineType(typeName, typeAttributes | Reflection.TypeAttributes.Public);
+                foreach (var parentInterface in interfaces)
+                {
+                    _typeBuilder.AddInterfaceImplementation(parentInterface);
+                }
                 _typeDefinitionAst.Type = _typeBuilder;
 
                 _definedMethods = new Dictionary<string, List<Tuple<AbstractFunctionMemberAst, Type[]>>>(StringComparer.OrdinalIgnoreCase);
@@ -1134,101 +1138,34 @@ namespace System.Management.Automation.Language
                     Diagnostics.Assert(type != null, "Semantic checks should have ensure type can't be null");
                 }
 
-                PropertyBuilder property = this.EmitPropertyIl(propertyMemberAst, type);
+                PropertyBuilder property = this.EmitAbstractPropertyIl(propertyMemberAst, type);
                 // Define custom attributes on the property, not on the backingField
                 DefineCustomAttributes(property, propertyMemberAst.Attributes, _parser, AttributeTargets.Field | AttributeTargets.Property);
             }
 
-            private PropertyBuilder EmitPropertyIl(PropertyMemberAst propertyMemberAst, Type type)
+            private PropertyBuilder EmitAbstractPropertyIl(PropertyMemberAst propertyMemberAst, Type type)
             {
-                // backing field is always private.
-                var backingFieldAttributes = FieldAttributes.Private;
                 // The property set and property get methods require a special set of attributes.
-                var getSetAttributes = Reflection.MethodAttributes.SpecialName | Reflection.MethodAttributes.HideBySig;
+                var getSetAttributes = Reflection.MethodAttributes.HideBySig 
+                    | Reflection.MethodAttributes.SpecialName 
+                    | Reflection.MethodAttributes.Abstract 
+                    | Reflection.MethodAttributes.Virtual 
+                    | Reflection.MethodAttributes.NewSlot;
                 getSetAttributes |= propertyMemberAst.IsPublic ? Reflection.MethodAttributes.Public : Reflection.MethodAttributes.Private;
-                if (propertyMemberAst.IsStatic)
-                {
-                    backingFieldAttributes |= FieldAttributes.Static;
-                    getSetAttributes |= Reflection.MethodAttributes.Static;
-                }
-                // C# naming convention for backing fields.
-                string backingFieldName = String.Format(CultureInfo.InvariantCulture, "<{0}>k__BackingField", propertyMemberAst.Name);
-                var backingField = _typeBuilder.DefineField(backingFieldName, type, backingFieldAttributes);
-
-                bool hasValidateAttributes = false;
-                if (propertyMemberAst.Attributes != null)
-                {
-                    for (int i = 0; i < propertyMemberAst.Attributes.Count; i++)
-                    {
-                        Type attributeType = propertyMemberAst.Attributes[i].TypeName.GetReflectionAttributeType();
-                        if (attributeType != null && attributeType.IsSubclassOf(typeof(ValidateArgumentsAttribute)))
-                        {
-                            hasValidateAttributes = true;
-                            break;
-                        }
-                    }
-                }
 
                 // The last argument of DefineProperty is null, because the property has no parameters.
-                PropertyBuilder property = _typeBuilder.DefineProperty(propertyMemberAst.Name, Reflection.PropertyAttributes.None, type, null);
+                PropertyBuilder property = _typeBuilder.DefineProperty(propertyMemberAst.Name, Reflection.PropertyAttributes.HasDefault, CallingConventions.HasThis, type, null);
 
                 // Define the "get" accessor method.
                 MethodBuilder getMethod = _typeBuilder.DefineMethod(String.Concat("get_", propertyMemberAst.Name), getSetAttributes, type, Type.EmptyTypes);
-                ILGenerator getIlGen = getMethod.GetILGenerator();
-                if (propertyMemberAst.IsStatic)
-                {
-                    // static
-                    getIlGen.Emit(OpCodes.Ldsfld, backingField);
-                    getIlGen.Emit(OpCodes.Ret);
-                }
-                else
-                {
-                    // instance
-                    getIlGen.Emit(OpCodes.Ldarg_0);
-                    getIlGen.Emit(OpCodes.Ldfld, backingField);
-                    getIlGen.Emit(OpCodes.Ret);
-                }
 
                 // Define the "set" accessor method.
                 MethodBuilder setMethod = _typeBuilder.DefineMethod(String.Concat("set_", propertyMemberAst.Name), getSetAttributes, null, new Type[] { type });
-                ILGenerator setIlGen = setMethod.GetILGenerator();
-
-                if (hasValidateAttributes)
-                {
-                    Type typeToLoad = _typeBuilder;
-                    setIlGen.Emit(OpCodes.Ldtoken, typeToLoad);
-                    setIlGen.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle")); // load current Type on stack
-                    setIlGen.Emit(OpCodes.Ldstr, propertyMemberAst.Name); // load name of Property
-                    setIlGen.Emit(propertyMemberAst.IsStatic ? OpCodes.Ldarg_0 : OpCodes.Ldarg_1); // load set value
-                    if (type.IsValueType)
-                    {
-                        setIlGen.Emit(OpCodes.Box, type);
-                    }
-                    setIlGen.Emit(OpCodes.Call, CachedReflectionInfo.ClassOps_ValidateSetProperty);
-                }
-
-                if (propertyMemberAst.IsStatic)
-                {
-                    setIlGen.Emit(OpCodes.Ldarg_0);
-                    setIlGen.Emit(OpCodes.Stsfld, backingField);
-                }
-                else
-                {
-                    setIlGen.Emit(OpCodes.Ldarg_0);
-                    setIlGen.Emit(OpCodes.Ldarg_1);
-                    setIlGen.Emit(OpCodes.Stfld, backingField);
-                }
-                setIlGen.Emit(OpCodes.Ret);
 
                 // Map the two methods created above to our PropertyBuilder to
                 // their corresponding behaviors, "get" and "set" respectively.
                 property.SetGetMethod(getMethod);
                 property.SetSetMethod(setMethod);
-
-                if (propertyMemberAst.IsHidden)
-                {
-                    property.SetCustomAttribute(s_hiddenCustomAttributeBuilder);
-                }
 
                 return property;
             }
