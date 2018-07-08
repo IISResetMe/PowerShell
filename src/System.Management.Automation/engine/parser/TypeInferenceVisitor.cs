@@ -633,6 +633,11 @@ namespace System.Management.Automation
             return TypeInferenceContext.EmptyPSTypeNameArray;
         }
 
+        object ICustomAstVisitor.VisitAbstractFunctionDefinition(AbstractFunctionDefinitionAst abstractFunctionDefinitionAst)
+        {
+            return TypeInferenceContext.EmptyPSTypeNameArray;
+        }
+
         object ICustomAstVisitor.VisitStatementBlock(StatementBlockAst statementBlockAst)
         {
             return statementBlockAst.Statements.SelectMany(InferTypes);
@@ -1549,6 +1554,11 @@ namespace System.Management.Automation
         }
 
         object ICustomAstVisitor2.VisitFunctionMember(FunctionMemberAst functionMemberAst)
+        {
+            return TypeInferenceContext.EmptyPSTypeNameArray;
+        }
+
+        object ICustomAstVisitor2.VisitAbstractFunctionMember(AbstractFunctionMemberAst abstractFunctionMemberAst)
         {
             return TypeInferenceContext.EmptyPSTypeNameArray;
         }

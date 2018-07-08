@@ -3340,6 +3340,262 @@ namespace System.Management.Automation.Language
         #endregion
     }
 
+    /// <summary>
+    /// The ast for a method.
+    /// </summary>
+    public class AbstractFunctionMemberAst : MemberAst, IParameterMetadataProvider
+    {
+        private static readonly ReadOnlyCollection<AttributeAst> s_emptyAttributeList =
+            Utils.EmptyReadOnlyCollection<AttributeAst>();
+        private static readonly ReadOnlyCollection<ParameterAst> s_emptyParameterList =
+            Utils.EmptyReadOnlyCollection<ParameterAst>();
+
+        private readonly AbstractFunctionDefinitionAst _abstractFunctionDefinitionAst;
+
+        /// <summary>
+        /// Construct a member function.
+        /// </summary>
+        /// <param name="extent">The extent of the method starting from any attributes to the closing curly.</param>
+        /// <param name="functionDefinitionAst">The main body of the method.</param>
+        /// <param name="returnType">The return type of the method, may be null.</param>
+        /// <param name="attributes">The custom attributes for the function.</param>
+        /// <param name="methodAttributes">The method attributes like public or static.</param>
+        public AbstractFunctionMemberAst(IScriptExtent extent, AbstractFunctionDefinitionAst functionDefinitionAst, TypeConstraintAst returnType, IEnumerable<AttributeAst> attributes, MethodAttributes methodAttributes)
+            : base(extent)
+        {
+            if (functionDefinitionAst == null)
+            {
+                throw PSTraceSource.NewArgumentNullException("functionDefinitionAst");
+            }
+
+            if ((methodAttributes & (MethodAttributes.Private | MethodAttributes.Public)) ==
+                (MethodAttributes.Private | MethodAttributes.Public))
+            {
+                throw PSTraceSource.NewArgumentException("methodAttributes");
+            }
+
+            if (returnType != null)
+            {
+                ReturnType = returnType;
+                SetParent(returnType);
+            }
+
+            if (attributes != null)
+            {
+                this.Attributes = new ReadOnlyCollection<AttributeAst>(attributes.ToArray());
+                SetParents(Attributes);
+            }
+            else
+            {
+                this.Attributes = s_emptyAttributeList;
+            }
+
+            _abstractFunctionDefinitionAst = functionDefinitionAst;
+            SetParent(functionDefinitionAst);
+            MethodAttributes = methodAttributes;
+        }
+
+        /// <summary>
+        /// The name of the method.  This property is never null.
+        /// </summary>
+        public override string Name { get { return _abstractFunctionDefinitionAst.Name; } }
+
+        /// <summary>
+        /// The attributes specified on the method.  This property is never null.
+        /// </summary>
+        public ReadOnlyCollection<AttributeAst> Attributes { get; private set; }
+
+        /// <summary>
+        /// The ast representing the return type for the method.  This property may be null if no return type was specified.
+        /// </summary>
+        public TypeConstraintAst ReturnType { get; private set; }
+
+        /// <summary>
+        /// The parameters specified immediately after the function name.  This property is never null.
+        /// </summary>
+        public ReadOnlyCollection<ParameterAst> Parameters
+        {
+            get { return _abstractFunctionDefinitionAst.Parameters ?? s_emptyParameterList; }
+        }
+
+        /// <summary>
+        /// The body of the function.  This property is never null.
+        /// </summary>
+        public ScriptBlockAst Body { get { return _abstractFunctionDefinitionAst.Body; } }
+
+        /// <summary>
+        ///  Method attribute flags.
+        /// </summary>
+        public MethodAttributes MethodAttributes { get; private set; }
+
+        /// <summary>
+        /// Returns true if the method is public.
+        /// </summary>
+        public bool IsPublic { get { return (MethodAttributes & MethodAttributes.Public) != 0; } }
+
+        /// <summary>
+        /// Returns true if the method is public.
+        /// </summary>
+        public bool IsPrivate { get { return (MethodAttributes & MethodAttributes.Private) != 0; } }
+
+        /// <summary>
+        /// Returns true if the method is hidden
+        /// </summary>
+        public bool IsHidden { get { return (MethodAttributes & MethodAttributes.Hidden) != 0; } }
+
+        /// <summary>
+        /// Returns true if the method is static
+        /// </summary>
+        public bool IsStatic { get { return (MethodAttributes & MethodAttributes.Static) != 0; } }
+
+        /// <summary>
+        /// Returns true if the method is a constructor
+        /// </summary>
+        public bool IsConstructor
+        {
+            get { return Name.Equals(((TypeDefinitionAst)Parent).Name, StringComparison.OrdinalIgnoreCase); }
+        }
+
+        internal IScriptExtent NameExtent { get { return _abstractFunctionDefinitionAst.NameExtent; } }
+
+        /// <summary>
+        /// Copy a function member ast.
+        /// </summary>
+        public override Ast Copy()
+        {
+            var newDefn = CopyElement(_abstractFunctionDefinitionAst);
+            var newReturnType = CopyElement(ReturnType);
+            var newAttributes = CopyElements(Attributes);
+
+            return new AbstractFunctionMemberAst(Extent, newDefn, newReturnType, newAttributes, MethodAttributes);
+        }
+
+        internal override string GetTooltip()
+        {
+            var sb = new StringBuilder();
+            if (IsStatic)
+            {
+                sb.Append("static ");
+            }
+            sb.Append(IsReturnTypeVoid() ? "void" : ReturnType.TypeName.FullName);
+            sb.Append(' ');
+            sb.Append(Name);
+            sb.Append('(');
+            for (int i = 0; i < Parameters.Count; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(", ");
+                }
+                sb.Append(Parameters[i].GetTooltip());
+            }
+            sb.Append(')');
+            return sb.ToString();
+        }
+
+        #region Visitors
+
+        internal override object Accept(ICustomAstVisitor visitor)
+        {
+            var visitor2 = visitor as ICustomAstVisitor2;
+            return visitor2 != null ? visitor2.VisitAbstractFunctionMember(this) : null;
+        }
+
+        internal override AstVisitAction InternalVisit(AstVisitor visitor)
+        {
+            var action = AstVisitAction.Continue;
+            var visitor2 = visitor as AstVisitor2;
+            if (visitor2 != null)
+            {
+                action = visitor2.VisitAbstractFunctionMember(this);
+                if (action == AstVisitAction.SkipChildren)
+                    return visitor.CheckForPostAction(this, AstVisitAction.Continue);
+                if (action == AstVisitAction.Continue)
+                {
+                    for (int index = 0; index < Attributes.Count; index++)
+                    {
+                        var attributeAst = Attributes[index];
+                        action = attributeAst.InternalVisit(visitor);
+                        if (action != AstVisitAction.Continue) break;
+                    }
+                }
+
+                if (action == AstVisitAction.Continue && ReturnType != null)
+                    action = ReturnType.InternalVisit(visitor);
+
+                if (action == AstVisitAction.Continue)
+                    action = _abstractFunctionDefinitionAst.InternalVisit(visitor);
+            }
+
+            return visitor.CheckForPostAction(this, action);
+        }
+
+        #endregion Visitors
+
+        #region IParameterMetadataProvider implementation
+
+        bool IParameterMetadataProvider.HasAnyScriptBlockAttributes()
+        {
+            return ((IParameterMetadataProvider)_abstractFunctionDefinitionAst).HasAnyScriptBlockAttributes();
+        }
+
+        ReadOnlyCollection<ParameterAst> IParameterMetadataProvider.Parameters
+        {
+            get { return ((IParameterMetadataProvider)_abstractFunctionDefinitionAst).Parameters; }
+        }
+
+        RuntimeDefinedParameterDictionary IParameterMetadataProvider.GetParameterMetadata(bool automaticPositions, ref bool usesCmdletBinding)
+        {
+            return ((IParameterMetadataProvider)_abstractFunctionDefinitionAst).GetParameterMetadata(automaticPositions, ref usesCmdletBinding);
+        }
+
+        IEnumerable<Attribute> IParameterMetadataProvider.GetScriptBlockAttributes()
+        {
+            return ((IParameterMetadataProvider)_abstractFunctionDefinitionAst).GetScriptBlockAttributes();
+        }
+
+        bool IParameterMetadataProvider.UsesCmdletBinding()
+        {
+            return ((IParameterMetadataProvider)_abstractFunctionDefinitionAst).UsesCmdletBinding();
+        }
+
+        PowerShell IParameterMetadataProvider.GetPowerShell(ExecutionContext context, Dictionary<string, object> variables, bool isTrustedInput,
+            bool filterNonUsingVariables, bool? createLocalScope, params object[] args)
+        {
+            // OK?  I think this isn't reachable
+            throw new NotSupportedException();
+        }
+
+        string IParameterMetadataProvider.GetWithInputHandlingForInvokeCommand()
+        {
+            // OK?  I think this isn't reachable
+            throw new NotSupportedException();
+        }
+
+        Tuple<string, string> IParameterMetadataProvider.GetWithInputHandlingForInvokeCommandWithUsingExpression(Tuple<List<VariableExpressionAst>, string> usingVariablesTuple)
+        {
+            throw new NotImplementedException();
+        }
+
+        #endregion IParameterMetadataProvider implementation
+
+        #region Internal helpers
+        internal bool IsReturnTypeVoid()
+        {
+            if (ReturnType == null)
+                return true;
+            var typeName = ReturnType.TypeName as TypeName;
+            return typeName == null ? false : typeName.IsType(typeof(void));
+        }
+
+        internal Type GetReturnType()
+        {
+            return ReturnType == null ? typeof(void) : ReturnType.TypeName.GetReflectionType();
+        }
+        #endregion
+    }
+
+
     internal enum SpecialMemberFunctionType
     {
         None,
@@ -3647,6 +3903,309 @@ namespace System.Management.Automation.Language
         internal override AstVisitAction InternalVisit(AstVisitor visitor)
         {
             var action = visitor.VisitFunctionDefinition(this);
+            if (action == AstVisitAction.SkipChildren)
+                return visitor.CheckForPostAction(this, AstVisitAction.Continue);
+            if (action == AstVisitAction.Continue)
+            {
+                if (Parameters != null)
+                {
+                    for (int index = 0; index < Parameters.Count; index++)
+                    {
+                        var param = Parameters[index];
+                        action = param.InternalVisit(visitor);
+                        if (action != AstVisitAction.Continue) break;
+                    }
+                }
+                if (action == AstVisitAction.Continue)
+                    action = Body.InternalVisit(visitor);
+            }
+            return visitor.CheckForPostAction(this, action);
+        }
+
+        #endregion Visitors
+
+        #region IParameterMetadataProvider implementation
+
+        bool IParameterMetadataProvider.HasAnyScriptBlockAttributes()
+        {
+            return ((IParameterMetadataProvider)Body).HasAnyScriptBlockAttributes();
+        }
+
+        RuntimeDefinedParameterDictionary IParameterMetadataProvider.GetParameterMetadata(bool automaticPositions, ref bool usesCmdletBinding)
+        {
+            if (Parameters != null)
+            {
+                return Compiler.GetParameterMetaData(Parameters, automaticPositions, ref usesCmdletBinding);
+            }
+            if (Body.ParamBlock != null)
+            {
+                return Compiler.GetParameterMetaData(Body.ParamBlock.Parameters, automaticPositions, ref usesCmdletBinding);
+            }
+            return new RuntimeDefinedParameterDictionary { Data = RuntimeDefinedParameterDictionary.EmptyParameterArray };
+        }
+
+        IEnumerable<Attribute> IParameterMetadataProvider.GetScriptBlockAttributes()
+        {
+            return ((IParameterMetadataProvider)Body).GetScriptBlockAttributes();
+        }
+
+        ReadOnlyCollection<ParameterAst> IParameterMetadataProvider.Parameters
+        {
+            get { return Parameters ?? (Body.ParamBlock != null ? Body.ParamBlock.Parameters : null); }
+        }
+
+        PowerShell IParameterMetadataProvider.GetPowerShell(ExecutionContext context, Dictionary<string, object> variables, bool isTrustedInput,
+            bool filterNonUsingVariables, bool? createLocalScope, params object[] args)
+        {
+            ExecutionContext.CheckStackDepth();
+            return ScriptBlockToPowerShellConverter.Convert(this.Body, this.Parameters, isTrustedInput, context, variables, filterNonUsingVariables, createLocalScope, args);
+        }
+
+        string IParameterMetadataProvider.GetWithInputHandlingForInvokeCommand()
+        {
+            string result = ((IParameterMetadataProvider)Body).GetWithInputHandlingForInvokeCommand();
+            return Parameters == null ? result : (GetParamTextFromParameterList() + result);
+        }
+
+        Tuple<string, string> IParameterMetadataProvider.GetWithInputHandlingForInvokeCommandWithUsingExpression(
+            Tuple<List<VariableExpressionAst>, string> usingVariablesTuple)
+        {
+            Tuple<string, string> result =
+                ((IParameterMetadataProvider)Body).GetWithInputHandlingForInvokeCommandWithUsingExpression(usingVariablesTuple);
+
+            if (Parameters == null)
+            {
+                return result;
+            }
+
+            string paramText = GetParamTextFromParameterList(usingVariablesTuple);
+            return new Tuple<string, string>(paramText, result.Item2);
+        }
+
+        bool IParameterMetadataProvider.UsesCmdletBinding()
+        {
+            bool usesCmdletBinding = false;
+            if (Parameters != null)
+            {
+                usesCmdletBinding = ParamBlockAst.UsesCmdletBinding(Parameters);
+            }
+            else if (Body.ParamBlock != null)
+            {
+                usesCmdletBinding = ((IParameterMetadataProvider)Body).UsesCmdletBinding();
+            }
+            return usesCmdletBinding;
+        }
+
+        #endregion IParameterMetadataProvider implementation
+    }
+
+    /// <summary>
+    /// The ast that represents a function or filter definition.  The function is always named.
+    /// </summary>
+    public class AbstractFunctionDefinitionAst : StatementAst, IParameterMetadataProvider
+    {
+        /// <summary>
+        /// Construct a function definition.
+        /// </summary>
+        /// <param name="extent">
+        /// The extent of the function definition, starting with the function or filter keyword, ending at the closing curly.
+        /// </param>
+        /// <param name="isFilter">True if the filter keyword was used.</param>
+        /// <param name="isWorkflow">True if the workflow keyword was used.</param>
+        /// <param name="name">The name of the function.</param>
+        /// <param name="parameters">
+        /// The parameters specified after the function name.  This does not include parameters specified with a param statement.
+        /// </param>
+        /// <param name="body">The body of the function/filter.</param>
+        /// <exception cref="PSArgumentNullException">
+        /// If <paramref name="extent"/>, <paramref name="name"/>, or <paramref name="body"/> is null, or
+        /// if <paramref name="name"/> is an empty string.
+        /// </exception>
+        public AbstractFunctionDefinitionAst(IScriptExtent extent,
+                                     bool isFilter,
+                                     bool isWorkflow,
+                                     string name,
+                                     IEnumerable<ParameterAst> parameters,
+                                     ScriptBlockAst body)
+            : base(extent)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                throw PSTraceSource.NewArgumentNullException("name");
+            }
+
+            if (body == null)
+            {
+                throw PSTraceSource.NewArgumentNullException("body");
+            }
+
+            if (isFilter && isWorkflow)
+            {
+                throw PSTraceSource.NewArgumentException("isFilter");
+            }
+
+            this.IsFilter = isFilter;
+            this.IsWorkflow = isWorkflow;
+
+            this.Name = name;
+            if (parameters != null && parameters.Any())
+            {
+                this.Parameters = new ReadOnlyCollection<ParameterAst>(parameters.ToArray());
+                SetParents(Parameters);
+            }
+            this.Body = body;
+            SetParent(body);
+        }
+
+        internal AbstractFunctionDefinitionAst(IScriptExtent extent,
+                                       bool isFilter,
+                                       bool isWorkflow,
+                                       Token functionNameToken,
+                                       IEnumerable<ParameterAst> parameters,
+                                       ScriptBlockAst body)
+            : this(extent,
+                   isFilter,
+                   isWorkflow,
+                   (functionNameToken.Kind == TokenKind.Generic) ? ((StringToken)functionNameToken).Value : functionNameToken.Text,
+                   parameters,
+                   body)
+        {
+            NameExtent = functionNameToken.Extent;
+        }
+
+        /// <summary>
+        /// If true, the filter keyword was used.
+        /// </summary>
+        public bool IsFilter { get; private set; }
+
+        /// <summary>
+        /// If true, the workflow keyword was used.
+        /// </summary>
+        public bool IsWorkflow { get; private set; }
+
+        /// <summary>
+        /// The name of the function or filter.  This property is never null or empty.
+        /// </summary>
+        public string Name { get; private set; }
+
+        /// <summary>
+        /// The parameters specified immediately after the function name, or null if no parameters were specified.
+        /// <para>It is possible that this property may have a value and <see cref="ScriptBlockAst.ParamBlock"/> to also have a
+        /// value.  Normally this is not allowed in a valid script, but in one rare case it is allowed:</para>
+        /// <c>function foo() { param($a) }</c>
+        /// <para>
+        /// In this example, the parameters specified after the function name must be empty or the script is not valid.
+        /// </para>
+        /// </summary>
+        public ReadOnlyCollection<ParameterAst> Parameters { get; private set; }
+
+        /// <summary>
+        /// The body of the function.  This property is never null.
+        /// </summary>
+        public ScriptBlockAst Body { get; private set; }
+
+        internal IScriptExtent NameExtent { get; private set; }
+
+        /// <summary>
+        /// Return the help content, if any, for the function.
+        /// </summary>
+        public CommentHelpInfo GetHelpContent()
+        {
+            Dictionary<Ast, Token[]> scriptBlockTokenCache = new Dictionary<Ast, Token[]>();
+            var commentTokens = HelpCommentsParser.GetHelpCommentTokens(this, scriptBlockTokenCache);
+            if (commentTokens != null)
+            {
+                return HelpCommentsParser.GetHelpContents(commentTokens.Item1, commentTokens.Item2);
+            }
+            return null;
+        }
+
+        /// <summary>
+        ///  Return the help content, if any, for the function.
+        ///  Use this overload when parsing multiple functions within a single scope.
+        /// </summary>
+        /// <param name="scriptBlockTokenCache">A dictionary that the parser will use to
+        /// map AST nodes to their respective tokens. The parser uses this to improve performance
+        /// while repeatedly parsing the parent script blocks of a function (since the parent
+        /// script blocks may contain help comments related to this function.
+        /// To conserve memory, clear / null-out this cache when done with repeated parsing.</param>
+        /// <returns></returns>
+        public CommentHelpInfo GetHelpContent(Dictionary<Ast, Token[]> scriptBlockTokenCache)
+        {
+            if (scriptBlockTokenCache == null)
+            {
+                throw new ArgumentNullException("scriptBlockTokenCache");
+            }
+
+            var commentTokens = HelpCommentsParser.GetHelpCommentTokens(this, scriptBlockTokenCache);
+            if (commentTokens != null)
+            {
+                return HelpCommentsParser.GetHelpContents(commentTokens.Item1, commentTokens.Item2);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Copy the FunctionDefinitionAst instance
+        /// </summary>
+        public override Ast Copy()
+        {
+            var newParameters = CopyElements(this.Parameters);
+            var newBody = CopyElement(this.Body);
+
+            return new AbstractFunctionDefinitionAst(this.Extent, this.IsFilter, this.IsWorkflow, this.Name, newParameters, newBody) { NameExtent = this.NameExtent };
+        }
+
+        internal string GetParamTextFromParameterList(Tuple<List<VariableExpressionAst>, string> usingVariablesTuple = null)
+        {
+            Diagnostics.Assert(Parameters != null, "Caller makes sure that Parameters is not null before calling this method.");
+
+            string additionalNewUsingParams = null;
+            IEnumerator<VariableExpressionAst> orderedUsingVars = null;
+            if (usingVariablesTuple != null)
+            {
+                Diagnostics.Assert(
+                    usingVariablesTuple.Item1 != null && usingVariablesTuple.Item1.Count > 0 && !string.IsNullOrEmpty(usingVariablesTuple.Item2),
+                    "Caller makes sure the value passed in is not null or empty.");
+                orderedUsingVars = usingVariablesTuple.Item1.OrderBy(varAst => varAst.Extent.StartOffset).GetEnumerator();
+                additionalNewUsingParams = usingVariablesTuple.Item2;
+            }
+
+            var sb = new StringBuilder("param(");
+            string separator = string.Empty;
+
+            if (additionalNewUsingParams != null)
+            {
+                // Add the $using variable parameters if necessary
+                sb.Append(additionalNewUsingParams);
+                separator = ", ";
+            }
+
+            for (int i = 0; i < Parameters.Count; i++)
+            {
+                var param = Parameters[i];
+                sb.Append(separator);
+                sb.Append(orderedUsingVars != null
+                              ? param.GetParamTextWithDollarUsingHandling(orderedUsingVars)
+                              : param.ToString());
+                separator = ", ";
+            }
+            sb.Append(")");
+            sb.Append(Environment.NewLine);
+
+            return sb.ToString();
+        }
+
+        #region Visitors
+
+        internal override object Accept(ICustomAstVisitor visitor)
+        {
+            return visitor.VisitAbstractFunctionDefinition(this);
+        }
+
+        internal override AstVisitAction InternalVisit(AstVisitor visitor)
+        {
+            var action = visitor.VisitAbstractFunctionDefinition(this);
             if (action == AstVisitAction.SkipChildren)
                 return visitor.CheckForPostAction(this, AstVisitAction.Continue);
             if (action == AstVisitAction.Continue)

@@ -207,6 +207,10 @@ namespace System.Management.Automation.Language
         internal static readonly MethodInfo FunctionOps_DefineFunction =
             typeof(FunctionOps).GetMethod(nameof(FunctionOps.DefineFunction), staticFlags);
 
+        internal static readonly MethodInfo FunctionOps_DefineAbstractFunction =
+            typeof(FunctionOps).GetMethod(nameof(FunctionOps.DefineAbstractFunction), staticFlags);
+
+
         internal static readonly ConstructorInfo Hashtable_ctor =
             typeof(Hashtable).GetConstructor(BindingFlags.Instance | BindingFlags.Public, null,
                                              CallingConventions.Standard, new Type[] { typeof(int), typeof(IEqualityComparer) }, null);
@@ -2861,6 +2865,11 @@ namespace System.Management.Automation.Language
             return null;
         }
 
+        public object VisitAbstractFunctionMember(AbstractFunctionMemberAst abstractFunctionMemberAst)
+        {
+            return null;
+        }
+
         public object VisitBaseCtorInvokeMemberExpression(BaseCtorInvokeMemberExpressionAst baseCtorInvokeMemberExpressionAst)
         {
             var target = CompileExpressionOperand(baseCtorInvokeMemberExpressionAst.Expression);
@@ -2895,6 +2904,14 @@ namespace System.Management.Automation.Language
                                    _executionContextParameter,
                                    Expression.Constant(functionDefinitionAst),
                                    Expression.Constant(new ScriptBlockExpressionWrapper(functionDefinitionAst)));
+        }
+
+        public object VisitAbstractFunctionDefinition(AbstractFunctionDefinitionAst abstractFunctionDefinitionAst)
+        {
+            return Expression.Call(CachedReflectionInfo.FunctionOps_DefineAbstractFunction,
+                                   _executionContextParameter,
+                                   Expression.Constant(abstractFunctionDefinitionAst),
+                                   Expression.Constant(new ScriptBlockExpressionWrapper(abstractFunctionDefinitionAst)));
         }
 
         public object VisitIfStatement(IfStatementAst ifStmtAst)

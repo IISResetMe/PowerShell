@@ -45,6 +45,8 @@ namespace System.Management.Automation.Language
         /// <summary/>
         object VisitFunctionDefinition(FunctionDefinitionAst functionDefinitionAst);
         /// <summary/>
+        object VisitAbstractFunctionDefinition(AbstractFunctionDefinitionAst abstractFunctionDefinitionAst);
+        /// <summary/>
         object VisitStatementBlock(StatementBlockAst statementBlockAst);
         /// <summary/>
         object VisitIfStatement(IfStatementAst ifStmtAst);
@@ -160,6 +162,9 @@ namespace System.Management.Automation.Language
 
         /// <summary/>
         object VisitFunctionMember(FunctionMemberAst functionMemberAst);
+
+        /// <summary/>
+        object VisitAbstractFunctionMember(AbstractFunctionMemberAst abstractFunctionMemberAst);
 
         /// <summary/>
         object VisitBaseCtorInvokeMemberExpression(BaseCtorInvokeMemberExpressionAst baseCtorInvokeMemberExpressionAst);
@@ -535,6 +540,8 @@ namespace System.Management.Automation.Language
         /// <summary/>
         public virtual object VisitFunctionDefinition(FunctionDefinitionAst functionDefinitionAst) { return null; }
         /// <summary/>
+        public virtual object VisitAbstractFunctionDefinition(AbstractFunctionDefinitionAst abstractFunctionDefinitionAst) { return null; }
+        /// <summary/>
         public virtual object VisitScriptBlockExpression(ScriptBlockExpressionAst scriptBlockExpressionAst) { return null; }
     }
 
@@ -557,5 +564,7 @@ namespace System.Management.Automation.Language
         public virtual object VisitTypeDefinition(TypeDefinitionAst typeDefinitionAst) { return null; }
         /// <summary/>
         public virtual object VisitFunctionMember(FunctionMemberAst functionMemberAst) { return null; }
+        /// <summary/>
+        public virtual object VisitAbstractFunctionMember(AbstractFunctionMemberAst abstractFunctionMemberAst) { return null; }
     }
 }

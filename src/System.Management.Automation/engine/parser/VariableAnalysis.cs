@@ -990,6 +990,14 @@ namespace System.Management.Automation.Language
             return null;
         }
 
+        public object VisitAbstractFunctionDefinition(AbstractFunctionDefinitionAst abstractFunctionDefinitionAst)
+        {
+            // Don't recurse into the function definition, it's variables are distinct from the script block
+            // we're currently analyzing.
+
+            return null;
+        }
+
         public object VisitStatementBlock(StatementBlockAst statementBlockAst)
         {
             // Don't visit traps - they get their own scope

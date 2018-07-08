@@ -73,6 +73,7 @@ namespace System.Management.Automation.Language
         public object VisitNamedAttributeArgument(NamedAttributeArgumentAst namedAttributeArgumentAst) { return false; }
         public object VisitParameter(ParameterAst parameterAst) { return false; }
         public object VisitFunctionDefinition(FunctionDefinitionAst functionDefinitionAst) { return false; }
+        public object VisitAbstractFunctionDefinition(AbstractFunctionDefinitionAst abstractFunctionDefinitionAst) { return false; }
         public object VisitIfStatement(IfStatementAst ifStmtAst) { return false; }
         public object VisitTrap(TrapStatementAst trapStatementAst) { return false; }
         public object VisitSwitchStatement(SwitchStatementAst switchStatementAst) { return false; }
@@ -323,6 +324,7 @@ namespace System.Management.Automation.Language
         public object VisitNamedAttributeArgument(NamedAttributeArgumentAst namedAttributeArgumentAst) { throw PSTraceSource.NewArgumentException("ast"); }
         public object VisitParameter(ParameterAst parameterAst) { throw PSTraceSource.NewArgumentException("ast"); }
         public object VisitFunctionDefinition(FunctionDefinitionAst functionDefinitionAst) { throw PSTraceSource.NewArgumentException("ast"); }
+        public object VisitAbstractFunctionDefinition(AbstractFunctionDefinitionAst functionDefinitionAst) { throw PSTraceSource.NewArgumentException("ast"); }
         public object VisitIfStatement(IfStatementAst ifStmtAst) { throw PSTraceSource.NewArgumentException("ast"); }
         public object VisitTrap(TrapStatementAst trapStatementAst) { throw PSTraceSource.NewArgumentException("ast"); }
         public object VisitSwitchStatement(SwitchStatementAst switchStatementAst) { throw PSTraceSource.NewArgumentException("ast"); }

@@ -67,6 +67,8 @@ namespace System.Management.Automation.Language
         /// <summary/>
         public virtual AstVisitAction VisitFunctionDefinition(FunctionDefinitionAst functionDefinitionAst) { return AstVisitAction.Continue; }
         /// <summary/>
+        public virtual AstVisitAction VisitAbstractFunctionDefinition(AbstractFunctionDefinitionAst abstractFunctionDefinitionAst) { return AstVisitAction.Continue; }
+        /// <summary/>
         public virtual AstVisitAction VisitStatementBlock(StatementBlockAst statementBlockAst) { return AstVisitAction.Continue; }
         /// <summary/>
         public virtual AstVisitAction VisitIfStatement(IfStatementAst ifStmtAst) { return AstVisitAction.Continue; }
@@ -173,6 +175,9 @@ namespace System.Management.Automation.Language
 
         /// <summary/>
         public virtual AstVisitAction VisitFunctionMember(FunctionMemberAst functionMemberAst) { return AstVisitAction.Continue; }
+
+        /// <summary/>
+        public virtual AstVisitAction VisitAbstractFunctionMember(AbstractFunctionMemberAst functionMemberAst) { return AstVisitAction.Continue; }
 
         /// <summary/>
         public virtual AstVisitAction VisitBaseCtorInvokeMemberExpression(BaseCtorInvokeMemberExpressionAst baseCtorInvokeMemberExpressionAst) { return AstVisitAction.Continue; }

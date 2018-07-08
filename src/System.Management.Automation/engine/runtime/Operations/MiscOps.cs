@@ -1227,6 +1227,31 @@ namespace System.Management.Automation
                 throw;
             }
         }
+
+        internal static void DefineAbstractFunction(ExecutionContext context,
+                                            FunctionDefinitionAst abstractFunctionDefinitionAst,
+                                            ScriptBlockExpressionWrapper scriptBlockExpressionWrapper)
+        {
+            try
+            {
+                ScriptBlock scriptBlock = scriptBlockExpressionWrapper.GetScriptBlock(
+                    context, abstractFunctionDefinitionAst.IsFilter);
+
+                context.EngineSessionState.SetFunctionRaw(abstractFunctionDefinitionAst.Name,
+                                                          ScriptBlock.Create(""), context.EngineSessionState.CurrentScope.ScopeOrigin);
+            }
+            catch (Exception exception)
+            {
+                var rte = exception as RuntimeException;
+                if (rte == null)
+                {
+                    throw ExceptionHandlingOps.ConvertToRuntimeException(exception, abstractFunctionDefinitionAst.Extent);
+                }
+
+                InterpreterError.UpdateExceptionErrorRecordPosition(rte, abstractFunctionDefinitionAst.Extent);
+                throw;
+            }
+        }
     }
 
     internal class ScriptBlockExpressionWrapper

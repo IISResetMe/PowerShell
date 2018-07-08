@@ -65,6 +65,7 @@ namespace System.Management.Automation.Language
         public object VisitNamedAttributeArgument(NamedAttributeArgumentAst namedAttributeArgumentAst) { return false; }
         public object VisitParameter(ParameterAst parameterAst) { return false; }
         public object VisitFunctionDefinition(FunctionDefinitionAst functionDefinitionAst) { return false; }
+        public object VisitAbstractFunctionDefinition(AbstractFunctionDefinitionAst abstractFunctionDefinitionAst) { return false; }
         public object VisitIfStatement(IfStatementAst ifStmtAst) { return false; }
         public object VisitTrap(TrapStatementAst trapStatementAst) { return false; }
         public object VisitSwitchStatement(SwitchStatementAst switchStatementAst) { return false; }
@@ -297,6 +298,7 @@ namespace System.Management.Automation.Language
         public object VisitNamedAttributeArgument(NamedAttributeArgumentAst namedAttributeArgumentAst) { return AutomationNull.Value; }
         public object VisitParameter(ParameterAst parameterAst) { return AutomationNull.Value; }
         public object VisitFunctionDefinition(FunctionDefinitionAst functionDefinitionAst) { return AutomationNull.Value; }
+        public object VisitAbstractFunctionDefinition(AbstractFunctionDefinitionAst abstractFunctionDefinitionAst) { return AutomationNull.Value; }
         public object VisitIfStatement(IfStatementAst ifStmtAst) { return AutomationNull.Value; }
         public object VisitTrap(TrapStatementAst trapStatementAst) { return AutomationNull.Value; }
         public object VisitSwitchStatement(SwitchStatementAst switchStatementAst) { return AutomationNull.Value; }

@@ -6760,6 +6760,7 @@ namespace System.Management.Automation
         public object VisitNamedAttributeArgument(NamedAttributeArgumentAst namedAttributeArgumentAst) { return false; }
         public object VisitParameter(ParameterAst parameterAst) { return false; }
         public object VisitFunctionDefinition(FunctionDefinitionAst functionDefinitionAst) { return false; }
+        public object VisitAbstractFunctionDefinition(AbstractFunctionDefinitionAst abstractFunctionDefinitionAst) { return false; }
         public object VisitIfStatement(IfStatementAst ifStmtAst) { return false; }
         public object VisitTrap(TrapStatementAst trapStatementAst) { return false; }
         public object VisitSwitchStatement(SwitchStatementAst switchStatementAst) { return false; }
@@ -6791,6 +6792,7 @@ namespace System.Management.Automation
         public object VisitTypeDefinition(TypeDefinitionAst typeDefinitionAst) { return false; }
         public object VisitPropertyMember(PropertyMemberAst propertyMemberAst) { return false; }
         public object VisitFunctionMember(FunctionMemberAst functionMemberAst) { return false; }
+        public object VisitAbstractFunctionMember(AbstractFunctionMemberAst abstractFunctionMemberAst) { return false; }
         public object VisitBaseCtorInvokeMemberExpression(BaseCtorInvokeMemberExpressionAst baseCtorInvokeMemberExpressionAst) { return false; }
         public object VisitUsingStatement(UsingStatementAst usingStatementAst) { return false; }
         public object VisitConfigurationDefinition(ConfigurationDefinitionAst configurationDefinitionAst)

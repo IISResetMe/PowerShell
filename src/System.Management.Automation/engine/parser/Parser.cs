@@ -4193,7 +4193,7 @@ namespace System.Management.Automation.Language
                                       ? customAttributes[0].Extent
                                       : interfaceToken.Extent;
                 var extent = ExtentOf(startExtent, lastExtent);
-                var classDefn = new TypeDefinitionAst(extent, name.Value, customAttributes == null ? null : customAttributes.OfType<AttributeAst>(), members, TypeAttributes.Class, extendedInterfacesList);
+                var interfaceDefn = new TypeDefinitionAst(extent, name.Value, customAttributes == null ? null : customAttributes.OfType<AttributeAst>(), members, TypeAttributes.Interface, extendedInterfacesList);
                 if (customAttributes != null && customAttributes.OfType<TypeConstraintAst>().Any())
                 {
                     if (nestedAsts == null)
@@ -4202,7 +4202,7 @@ namespace System.Management.Automation.Language
                     }
                     //no need to report error since the error is reported in method StatementRule
                     nestedAsts.AddRange(customAttributes.OfType<TypeConstraintAst>());
-                    nestedAsts.Add(classDefn);
+                    nestedAsts.Add(interfaceDefn);
                 }
 
                 if (nestedAsts != null && nestedAsts.Count > 0)
@@ -4210,7 +4210,7 @@ namespace System.Management.Automation.Language
                     return new ErrorStatementAst(extent, nestedAsts);
                 }
 
-                return classDefn;
+                return interfaceDefn;
             }
             finally
             {
@@ -4225,7 +4225,7 @@ namespace System.Management.Automation.Language
             //G      property-member
             //G
             //G  method-member:
-            //G      member-attribute-list:opt function-statement           // To be changed
+            //G      member-attribute-list:opt abstract-function-statement
             //G
             //G  property-member:
             //G      member-attribute-list:opt  variable
@@ -4235,15 +4235,12 @@ namespace System.Management.Automation.Language
             //G      member-attribute-list  member-attribute
             //G
             //G  member-attribute:
-            //G      attribute
-            //G      'static'
+            //G      type-spec
 
             IScriptExtent startExtent = null;
             var attributeList = new List<AttributeAst>();
             TypeConstraintAst typeConstraint = null;
             bool scanningAttributes = true;
-            Token staticToken = null;
-            Token hiddenToken = null;
             Token token = null;
             object lastAttribute = null;
             astsOnError = null;
@@ -4266,18 +4263,27 @@ namespace System.Management.Automation.Language
                         startExtent = attribute.Extent;
                     }
 
-                    var attributeAst = attribute as AttributeAst;
-                    if (attributeAst != null)
+                    var typeConstraintAttribute = attribute as TypeConstraintAst;
+                    if (typeConstraint == null)
                     {
-                        ReportError(attribute.Extent, nameof(ParserStrings.AttributeNotAllowedOnDeclaration), ParserStrings.AttributeNotAllowedOnDeclaration);
-                    }
-                    else if (typeConstraint == null)
-                    {
-                        typeConstraint = (TypeConstraintAst)attribute;
+                        if (typeConstraintAttribute != null)
+                        {
+                            typeConstraint = (TypeConstraintAst)attribute;
+                        }
+                        else
+                        {
+                            ReportError(attribute.Extent, 
+                                nameof(ParserStrings.AttributeNotAllowedOnDeclaration), 
+                                ParserStrings.AttributeNotAllowedOnDeclaration, 
+                                attribute.Extent, 
+                                "class");
+                        }
                     }
                     else
                     {
-                        ReportError(attribute.Extent, nameof(ParserStrings.TooManyTypes), ParserStrings.TooManyTypes);
+                        ReportError(attribute.Extent, 
+                            nameof(ParserStrings.TooManyTypes), 
+                            ParserStrings.TooManyTypes);
                     }
                     continue;
                 }
@@ -4334,20 +4340,18 @@ namespace System.Management.Automation.Language
 
                     case TokenKind.Hidden:
                         ReportError(token.Extent,
-                            nameof(ParserStrings.HiddenAttributeNotSupported),
-                            ParserStrings.HiddenAttributeNotSupported,
+                            nameof(ParserStrings.UnexpectedKeyword),
+                            ParserStrings.UnexpectedKeyword,
                             token.Text);
+                        lastAttribute = token;
+                        SkipToken();
                         break;
 
                     case TokenKind.Static:
-                        if (staticToken != null)
-                        {
-                            ReportError(token.Extent,
-                                nameof(ParserStrings.DuplicateQualifier),
-                                ParserStrings.DuplicateQualifier,
-                                token.Text);
-                        }
-                        staticToken = token;
+                        ReportError(token.Extent,
+                            nameof(ParserStrings.UnexpectedKeyword),
+                            ParserStrings.UnexpectedKeyword,
+                            token.Text);
                         lastAttribute = token;
                         SkipToken();
                         break;
@@ -4363,16 +4367,15 @@ namespace System.Management.Automation.Language
                 SkipToken();
 
                 var varToken = token as VariableToken;
-
-                ExpressionAst initialValueAst = null;
+                
                 var assignToken = PeekToken();
                 if (assignToken.Kind == TokenKind.Equals)
                 {
                     ReportError(
-                        token.Extent,
-                        nameof(ParserStrings.AssignmentStatementNotSupportedInDataSection),
-                        ParserStrings.AssignmentStatementNotSupportedInDataSection,
-                        token.Text);
+                        assignToken.Extent,
+                        nameof(ParserStrings.AssignmentStatementNotSupportedInDeclaration),
+                        ParserStrings.AssignmentStatementNotSupportedInDeclaration);
+                    return null;
                 }
 
 #if SUPPORT_PUBLIC_PRIVATE
@@ -4380,12 +4383,7 @@ namespace System.Management.Automation.Language
 #else
                 PropertyAttributes attributes = PropertyAttributes.Public;
 #endif
-                if (staticToken != null)
-                {
-                    attributes |= PropertyAttributes.Static;
-                }
-
-                var endExtent = initialValueAst != null ? initialValueAst.Extent : varToken.Extent;
+                var endExtent = varToken.Extent;
                 Token terminatorToken = PeekToken();
                 if (terminatorToken.Kind != TokenKind.NewLine && terminatorToken.Kind != TokenKind.Semi && terminatorToken.Kind != TokenKind.RCurly)
                 {
@@ -4404,7 +4402,7 @@ namespace System.Management.Automation.Language
                 if (!String.IsNullOrEmpty(varToken.Name))
                 {
                     return new PropertyMemberAst(ExtentOf(startExtent, endExtent), varToken.Name,
-                        typeConstraint, attributeList, attributes, initialValueAst);
+                        typeConstraint, attributeList, attributes, null);
                 }
                 else
                 {
@@ -4414,7 +4412,6 @@ namespace System.Management.Automation.Language
 
                     RecordErrorAsts(attributeList, ref astsOnError);
                     RecordErrorAsts(typeConstraint, ref astsOnError);
-                    RecordErrorAsts(initialValueAst, ref astsOnError);
                     return null;
                 }
             }
@@ -4422,7 +4419,7 @@ namespace System.Management.Automation.Language
             if (token.Kind == TokenKind.Identifier)
             {
                 SkipToken();
-                var functionDefinition = AbstractMethodDeclarationRule(token, interfaceName, staticToken != null) as FunctionDefinitionAst;
+                var functionDefinition = AbstractMethodDeclarationRule(token, interfaceName) as AbstractFunctionDefinitionAst;
 
                 if (functionDefinition == null)
                 {
@@ -4439,11 +4436,7 @@ namespace System.Management.Automation.Language
 #else
                 MethodAttributes attributes = MethodAttributes.Public;
 #endif
-                if (staticToken != null)
-                {
-                    attributes |= MethodAttributes.Static;
-                }
-                return new FunctionMemberAst(ExtentOf(startExtent, functionDefinition), functionDefinition, typeConstraint, attributeList, attributes);
+                return new AbstractFunctionMemberAst(ExtentOf(startExtent, functionDefinition), functionDefinition, typeConstraint, attributeList, attributes);
             }
 
             if (lastAttribute != null)
@@ -5473,7 +5466,7 @@ namespace System.Management.Automation.Language
             }
         }
 
-        private StatementAst AbstractMethodDeclarationRule(Token functionNameToken, string interfaceName, bool isStaticMethod)
+        private StatementAst AbstractMethodDeclarationRule(Token functionNameToken, string interfaceName)
         {
             //G  abstract-method-statement:
             //G      new-lines:opt   function-name   function-parameter-declaration
@@ -5505,7 +5498,11 @@ namespace System.Management.Automation.Language
             if (isCtor)
             {
                 endErrorStatement = functionNameToken.Extent;
-                ReportError(endErrorStatement, nameof(ParserStrings.UnexpectedCtorDeclaration), ParserStrings.UnexpectedCtorDeclaration);
+                ReportError(
+                    endErrorStatement, 
+                    nameof(ParserStrings.UnexpectedCtorDeclaration), 
+                    ParserStrings.UnexpectedCtorDeclaration);
+                return null;
             }
 
             Token lCurly = NextToken();
@@ -5532,8 +5529,8 @@ namespace System.Management.Automation.Language
             try
             {
                 SetTokenizerMode(TokenizerMode.Command);
-                ScriptBlockAst scriptBlock = ScriptBlockRule(lCurly, false, null);
-                var result = new FunctionDefinitionAst(ExtentOf(functionNameToken, scriptBlock),
+                ScriptBlockAst scriptBlock = new ScriptBlockAst(new EmptyScriptExtent(), null, new StatementBlockAst(new EmptyScriptExtent(), null, null), false);
+                var result = new AbstractFunctionDefinitionAst(ExtentOf(functionNameToken, scriptBlock),
                     /*isFilter:*/false, /*isWorkflow:*/false, functionNameToken, parameters, scriptBlock);
 
                 return result;
