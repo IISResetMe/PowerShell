@@ -25,6 +25,7 @@ namespace Microsoft.PowerShell.Commands
             get { return DescendingOrder; }
             set { DescendingOrder = value; }
         }
+
         /// <summary>
         /// This param specifies if only unique objects are filtered.
         /// </summary>
@@ -36,6 +37,18 @@ namespace Microsoft.PowerShell.Commands
             set { _unique = value; }
         }
         private bool _unique;
+
+        /// <summary>
+        /// This param specifies whether input order must be preserved for comparable values.
+        /// </summary>
+        /// <value></value>
+        [Parameter]
+        public SwitchParameter Stable
+        {
+            get { return _stable; }
+            set { _stable = value; }
+        }
+        private bool _stable;
         #endregion
 
         /// <summary>
@@ -239,13 +252,13 @@ namespace Microsoft.PowerShell.Commands
             // Track the number of items that will be output from the data once it is sorted
             int sortedItemCount = dataToProcess.Count;
 
-            // If -Top & -Bottom were not used, or if -Top or -Bottom would return all objects, invoke
+            // If neither -Top, -Bottom or -Stable were used, or if -Top or -Bottom would return all objects, invoke
             // an in-place full sort
-            if ((Top == 0 && Bottom == 0) || Top >= dataToProcess.Count || Bottom >= dataToProcess.Count)
+            if (!Stable && (Top == 0 && Bottom == 0) || Top >= dataToProcess.Count || Bottom >= dataToProcess.Count)
             {
                 sortedItemCount = FullSort(dataToProcess, comparer);
             }
-            // Otherwise, use an indexed min-/max-heap to perform an in-place sort of all objects
+            // Otherwise, use an indexed min-/max-heap to perform a stable in-place sort of all objects
             else
             {
                 sortedItemCount = Heapify(dataToProcess, comparer);
