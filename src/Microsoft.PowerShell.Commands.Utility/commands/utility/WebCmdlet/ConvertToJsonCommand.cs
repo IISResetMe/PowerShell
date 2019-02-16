@@ -60,6 +60,14 @@ namespace Microsoft.PowerShell.Commands
         public SwitchParameter EnumsAsStrings { get; set; }
 
         /// <summary>
+        /// Gets or sets the ScriptBlocksAsStrings property.
+        /// If the ScriptBlocksAsStrings property is set to true, scriptblocks
+        /// will be converted to their string equivalent.
+        /// </summary>
+        [Parameter]
+        public SwitchParameter ScriptBlocksAsStrings { get; set; }
+
+        /// <summary>
         /// Gets or sets the AsArray property.
         /// If the AsArray property is set to be true, the result JSON string will
         /// be returned with surrounding '[', ']' chars. Otherwise,
@@ -117,6 +125,7 @@ namespace Microsoft.PowerShell.Commands
                 var context = new JsonObject.ConvertToJsonContext(
                     Depth,
                     EnumsAsStrings.IsPresent,
+                    ScriptBlocksAsStrings.IsPresent,
                     Compress.IsPresent,
                     cancellationSource.Token,
                     EscapeHandling,

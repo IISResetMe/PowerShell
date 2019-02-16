@@ -50,6 +50,11 @@ namespace Microsoft.PowerShell.Commands
             public readonly bool EnumsAsStrings;
 
             /// <summary>
+            /// Gets the ScriptBlocksAsStrings settings.
+            /// </summary>
+            public readonly bool ScriptBlocksAsStrings;
+
+            /// <summary>
             /// Gets the CompressOutput setting.
             /// </summary>
             public readonly bool CompressOutput;
@@ -64,9 +69,10 @@ namespace Microsoft.PowerShell.Commands
             /// </summary>
             /// <param name="maxDepth">The maximum depth to visit the object.</param>
             /// <param name="enumsAsStrings">Indicates whether to use enum names for the JSON conversion.</param>
+            /// <param name="scriptblocksAsStrings">Indicates whether to use string representation for scriptblocks</param>
             /// <param name="compressOutput">Indicates whether to get the compressed output.</param>
-            public ConvertToJsonContext(int maxDepth, bool enumsAsStrings, bool compressOutput)
-                : this(maxDepth, enumsAsStrings, compressOutput, CancellationToken.None, StringEscapeHandling.Default, targetCmdlet: null)
+            public ConvertToJsonContext(int maxDepth, bool enumsAsStrings, bool scriptblocksAsStrings, bool compressOutput)
+                : this(maxDepth, enumsAsStrings, scriptblocksAsStrings, compressOutput, CancellationToken.None, StringEscapeHandling.Default, targetCmdlet: null)
             {
             }
 
@@ -75,6 +81,7 @@ namespace Microsoft.PowerShell.Commands
             /// </summary>
             /// <param name="maxDepth">The maximum depth to visit the object.</param>
             /// <param name="enumsAsStrings">Indicates whether to use enum names for the JSON conversion.</param>
+            /// <param name="scriptblocksAsStrings">Indicates whether to use enum names for the JSON conversion.</param>
             /// <param name="compressOutput">Indicates whether to get the compressed output.</param>
             /// <param name="cancellationToken">Specifies the cancellation token for cancelling the operation.</param>
             /// <param name="stringEscapeHandling">Specifies how strings are escaped when writing JSON text.</param>
@@ -82,6 +89,7 @@ namespace Microsoft.PowerShell.Commands
             public ConvertToJsonContext(
                 int maxDepth,
                 bool enumsAsStrings,
+                bool scriptblocksAsStrings,
                 bool compressOutput,
                 CancellationToken cancellationToken,
                 StringEscapeHandling stringEscapeHandling,
@@ -91,6 +99,7 @@ namespace Microsoft.PowerShell.Commands
                 this.CancellationToken = cancellationToken;
                 this.StringEscapeHandling = stringEscapeHandling;
                 this.EnumsAsStrings = enumsAsStrings;
+                this.ScriptBlocksAsStrings = scriptblocksAsStrings;
                 this.CompressOutput = compressOutput;
                 this.Cmdlet = targetCmdlet;
             }
@@ -516,6 +525,10 @@ namespace Microsoft.PowerShell.Commands
             else if (obj is Newtonsoft.Json.Linq.JObject jObject)
             {
                 rv = jObject.ToObject<Dictionary<object, object>>();
+            }
+            else if (obj is ScriptBlock && context.ScriptBlocksAsStrings)
+            {
+                rv = string.Format("{{{0}}}", (ScriptBlock)obj);
             }
             else
             {
