@@ -2301,10 +2301,24 @@ namespace System.Management.Automation
                 Match m;
 
                 Regex regex = condition as Regex;
-                // Check if the regex agrees with the switch w.r.t. case sensitivity, if not,
-                // we must build a new regex.
-                if (regex != null && (((regex.Options & RegexOptions.IgnoreCase) != 0) != caseSensitive))
+                if (regex != null)
                 {
+                    // Check if the regex agrees with the switch w.r.t. case sensitivity, if not,
+                    // we must build a new regex.
+                    if (((regex.Options & RegexOptions.IgnoreCase) != 0) == caseSensitive)
+                    {
+                        RegexOptions newOptions = regex.Options;
+                        if (caseSensitive)
+                        {
+                            newOptions &= ~RegexOptions.IgnoreCase;
+                        }
+                        else
+                        {
+                            newOptions |= RegexOptions.IgnoreCase;
+                        }
+
+                        regex = new Regex(regex.ToString(), newOptions, regex.MatchTimeout);
+                    }
                     m = regex.Match(str);
                 }
                 else
