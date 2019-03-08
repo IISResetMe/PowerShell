@@ -586,7 +586,7 @@ function New-PSOptions {
         [ValidateSet("Debug", "Release", "CodeCoverage", '')]
         [string]$Configuration,
 
-        [ValidateSet("netcoreapp2.1")]
+        [ValidateSet("netcoreapp3.0")]
         [string]$Framework,
 
         # These are duplicated from Start-PSBuild
@@ -643,7 +643,7 @@ function New-PSOptions {
     Write-Verbose "Top project directory is $Top"
 
     if (-not $Framework) {
-        $Framework = "netcoreapp2.1"
+        $Framework = "netcoreapp3.0"
         Write-Verbose "Using framework '$Framework'"
     }
 

@@ -93,9 +93,9 @@
     <Company>Microsoft Corporation</Company>
     <Copyright>(c) Microsoft Corporation. All rights reserved.</Copyright>
 
-    <TargetFramework>netcoreapp2.1</TargetFramework>
-    <RuntimeFrameworkVersion>2.1.5</RuntimeFrameworkVersion>
-    <LangVersion>Latest</LangVersion>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <RuntimeFrameworkVersion>3.0.0-*</RuntimeFrameworkVersion>
+    <LangVersion>8.0</LangVersion>
 
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
