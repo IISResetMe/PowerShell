@@ -837,15 +837,24 @@ namespace System.Management.Automation.Language
                         functionMemberAst.ReturnType.TypeName.FullName);
                     return;
                 }
-                var method = _typeBuilder.DefineMethod(functionMemberAst.Name, attributes, returnType, parameterTypes);
-                DefineCustomAttributes(method, functionMemberAst.Attributes, _parser, AttributeTargets.Method);
-                if (functionMemberAst.IsHidden)
+                var dllImportAttribute = functionMemberAst.Attributes.First(ast => ast.TypeName.GetReflectionType() == typeof(Runtime.InteropServices.DllImportAttribute));
+                if (dllImportAttribute == null)
                 {
-                    method.SetCustomAttribute(s_hiddenCustomAttributeBuilder);
+                    var method = _typeBuilder.DefineMethod(functionMemberAst.Name, attributes, returnType, parameterTypes);
+                    DefineCustomAttributes(method, functionMemberAst.Attributes, _parser, AttributeTargets.Method);
+                    if (functionMemberAst.IsHidden)
+                    {
+                        method.SetCustomAttribute(s_hiddenCustomAttributeBuilder);
+                    }
+                    var ilGenerator = method.GetILGenerator();
+                    DefineMethodBody(functionMemberAst, ilGenerator, GetMetaDataName(method.Name, parameterTypes.Count()), functionMemberAst.IsStatic, parameterTypes, returnType,
+                        (i, n) => method.DefineParameter(i, ParameterAttributes.None, n));
                 }
-                var ilGenerator = method.GetILGenerator();
-                DefineMethodBody(functionMemberAst, ilGenerator, GetMetaDataName(method.Name, parameterTypes.Count()), functionMemberAst.IsStatic, parameterTypes, returnType,
-                    (i, n) => method.DefineParameter(i, ParameterAttributes.None, n));
+                else
+                {
+                    string dllName = dllImportAttribute.PositionalArguments[0].ToString().Trim(new char[] { '"', '\'' });
+                    _typeBuilder.DefinePInvokeMethod(functionMemberAst.Name, dllName, attributes | Reflection.MethodAttributes.PinvokeImpl, CallingConventions.Standard, functionMemberAst.GetReturnType(), functionMemberAst.Parameters.Select(p => p.StaticType).ToArray(), Runtime.InteropServices.CallingConvention.Winapi, Runtime.InteropServices.CharSet.Unicode);
+                }
             }
 
             private void DefineConstructor(IParameterMetadataProvider ipmp, ReadOnlyCollection<AttributeAst> attributeAsts, bool isHidden, Reflection.MethodAttributes methodAttributes, Type[] parameterTypes)
