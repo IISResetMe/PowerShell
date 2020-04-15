@@ -1013,6 +1013,9 @@ namespace System.Management.Automation
                 case ScriptBlock sb:
                     MatchEvaluator me = match =>
                     {
+                        // Populate the $matches var ahead of executing the scriptblock
+                        UpdateMatchesVar(context, regex, match);
+
                         var result = sb.DoInvokeReturnAsIs(
                             useLocalScope: false, /* Use current scope to be consistent with 'ForEach/Where-Object {}' and 'collection.ForEach{}/Where{}' */
                             errorHandlingBehavior: ScriptBlock.ErrorHandlingBehavior.WriteToCurrentErrorPipe,
@@ -1032,6 +1035,36 @@ namespace System.Management.Automation
                     string replacement = PSObject.ToStringParser(context, substitute);
                     return regex.Replace(input, replacement);
             }
+        }
+
+        private static Hashtable UpdateMatchesVar(ExecutionContext context, Regex regex, Match match)
+        {
+            if (match.Success)
+            {
+                GroupCollection groups = match.Groups;
+                if (groups.Count > 0)
+                {
+                    Hashtable h = new Hashtable(StringComparer.CurrentCultureIgnoreCase);
+
+                    foreach (string groupName in regex.GetGroupNames())
+                    {
+                        Group g = groups[groupName];
+                        if (g.Success)
+                        {
+                            int keyInt;
+
+                            if (Int32.TryParse(groupName, out keyInt))
+                                h.Add(keyInt, g.ToString());
+                            else
+                                h.Add(groupName, g.ToString());
+                        }
+                    }
+
+                    context.SetVariable(SpecialVariables.MatchesVarPath, h);
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -1193,29 +1226,10 @@ namespace System.Management.Automation
                 // Find a match in the string.
                 Match m = r.Match(lvalString);
 
-                if (m.Success)
+                // Update $matches variable on success
+                if(m.Success)
                 {
-                    GroupCollection groups = m.Groups;
-                    if (groups.Count > 0)
-                    {
-                        Hashtable h = new Hashtable(StringComparer.CurrentCultureIgnoreCase);
-
-                        foreach (string groupName in r.GetGroupNames())
-                        {
-                            Group g = groups[groupName];
-                            if (g.Success)
-                            {
-                                int keyInt;
-
-                                if (Int32.TryParse(groupName, out keyInt))
-                                    h.Add(keyInt, g.ToString());
-                                else
-                                    h.Add(groupName, g.ToString());
-                            }
-                        }
-
-                        context.SetVariable(SpecialVariables.MatchesVarPath, h);
-                    }
+                    UpdateMatchesVar(context, r, m);
                 }
 
                 return BoolToObject(m.Success ^ notMatch);
