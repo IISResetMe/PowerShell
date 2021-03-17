@@ -1174,6 +1174,9 @@ ModuleVersion : Version of module to import. If used, ModuleName must represent 
   <data name="MemberAlreadyDefined" xml:space="preserve">
     <value>The member '{0}' is already defined.</value>
   </data>
+  <data name="AbstractTypesCantHaveStaticMembers" xml:space="preserve">
+    <value>Abstract member '{0}' of type '{1}' cannot be declared static</value>
+  </data>
   <data name="TooManyTypes" xml:space="preserve">
     <value>Only one type may be specified on class members.</value>
   </data>

@@ -369,7 +369,8 @@ namespace System.Management.Automation.Language
 
         public override AstVisitAction VisitFunctionMember(FunctionMemberAst functionMemberAst)
         {
-            _symbolTable.EnterScope(functionMemberAst.Body, ScopeType.Method);
+            if(!functionMemberAst.IsAbstract)
+                _symbolTable.EnterScope(functionMemberAst.Body, ScopeType.Method);
             return AstVisitAction.Continue;
         }
 
@@ -759,7 +760,8 @@ namespace System.Management.Automation.Language
 
         public override object VisitFunctionMember(FunctionMemberAst functionMemberAst)
         {
-            _symbolResolver._symbolTable.LeaveScope();
+            if(!functionMemberAst.IsAbstract)
+                _symbolResolver._symbolTable.LeaveScope();
             return null;
         }
     }

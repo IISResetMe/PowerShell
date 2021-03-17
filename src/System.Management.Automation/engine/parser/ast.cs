@@ -3210,6 +3210,9 @@ namespace System.Management.Automation.Language
 
         /// <summary>The property is a hidden.</summary>
         Hidden = 0x40,
+
+        /// <summary>The member is abstract.</summary>
+        Abstract = 0x80
     }
 
     /// <summary>
@@ -3320,6 +3323,11 @@ namespace System.Management.Automation.Language
         /// Returns true if the method is static.
         /// </summary>
         public bool IsStatic { get { return (MethodAttributes & MethodAttributes.Static) != 0; } }
+
+        /// <summary>
+        /// Returns true if the method is static.
+        /// </summary>
+        public bool IsAbstract { get { return (MethodAttributes & MethodAttributes.Abstract) != 0; } }
 
         /// <summary>
         /// Returns true if the method is a constructor.
@@ -3611,6 +3619,17 @@ namespace System.Management.Automation.Language
                                      string name,
                                      IEnumerable<ParameterAst> parameters,
                                      ScriptBlockAst body)
+            : this(extent, isFilter, isWorkflow, false, name, parameters, body)
+        {
+        }
+
+        private FunctionDefinitionAst(IScriptExtent extent,
+                                      bool isFilter,
+                                      bool isWorkflow,
+                                      bool isAbstract,
+                                      string name,
+                                      IEnumerable<ParameterAst> parameters,
+                                      ScriptBlockAst body)
             : base(extent)
         {
             if (string.IsNullOrEmpty(name))
@@ -3618,7 +3637,7 @@ namespace System.Management.Automation.Language
                 throw PSTraceSource.NewArgumentNullException(nameof(name));
             }
 
-            if (body == null)
+            if (body == null && !isAbstract)
             {
                 throw PSTraceSource.NewArgumentNullException(nameof(body));
             }
@@ -3630,27 +3649,34 @@ namespace System.Management.Automation.Language
 
             this.IsFilter = isFilter;
             this.IsWorkflow = isWorkflow;
+            this.IsAbstract = isAbstract;
 
             this.Name = name;
+
             if (parameters != null && parameters.Any())
             {
                 this.Parameters = new ReadOnlyCollection<ParameterAst>(parameters.ToArray());
                 SetParents(Parameters);
             }
 
-            this.Body = body;
-            SetParent(body);
+            if(body != null)
+            {
+                this.Body = body;
+                SetParent(body);
+            }
         }
 
         internal FunctionDefinitionAst(IScriptExtent extent,
                                        bool isFilter,
                                        bool isWorkflow,
+                                       bool isAbstract,
                                        Token functionNameToken,
                                        IEnumerable<ParameterAst> parameters,
                                        ScriptBlockAst body)
             : this(extent,
                    isFilter,
                    isWorkflow,
+                   isAbstract,
                    (functionNameToken.Kind == TokenKind.Generic) ? ((StringToken)functionNameToken).Value : functionNameToken.Text,
                    parameters,
                    body)
@@ -3667,6 +3693,11 @@ namespace System.Management.Automation.Language
         /// If true, the workflow keyword was used.
         /// </summary>
         public bool IsWorkflow { get; }
+
+        /// <summary>
+        /// If true, the function has no body
+        /// </summary>
+        public bool IsAbstract { get; }
 
         /// <summary>
         /// The name of the function or filter.  This property is never null or empty.
@@ -3808,7 +3839,7 @@ namespace System.Management.Automation.Language
                     }
                 }
 
-                if (action == AstVisitAction.Continue)
+                if (!IsAbstract && action == AstVisitAction.Continue)
                     action = Body.InternalVisit(visitor);
             }
 
@@ -3851,7 +3882,7 @@ namespace System.Management.Automation.Language
 
         ReadOnlyCollection<ParameterAst> IParameterMetadataProvider.Parameters
         {
-            get { return Parameters ?? (Body.ParamBlock?.Parameters); }
+            get { return Parameters ?? (Body?.ParamBlock?.Parameters); }
         }
 
         PowerShell IParameterMetadataProvider.GetPowerShell(ExecutionContext context, Dictionary<string, object> variables, bool isTrustedInput,

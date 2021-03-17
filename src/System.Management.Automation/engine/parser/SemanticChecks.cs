@@ -396,6 +396,20 @@ namespace System.Management.Automation.Language
         {
             _memberScopeStack.Push(functionMemberAst);
 
+            if (functionMemberAst.IsConstructor && functionMemberAst.ReturnType != null)
+            {
+                _parser.ReportError(functionMemberAst.ReturnType.Extent,
+                    nameof(ParserStrings.ConstructorCantHaveReturnType),
+                    ParserStrings.ConstructorCantHaveReturnType);
+            }
+
+            if(functionMemberAst.IsAbstract)
+            {
+                // remaining checks relate to the body, 
+                // nothing more to do for abstract method declarations 
+                return AstVisitAction.Continue;
+            }
+
             var body = functionMemberAst.Body;
             if (body.ParamBlock != null)
             {
@@ -412,13 +426,6 @@ namespace System.Management.Automation.Language
                 _parser.ReportError(Parser.ExtentFromFirstOf(body.DynamicParamBlock, body.BeginBlock, body.ProcessBlock, body.EndBlock),
                     nameof(ParserStrings.NamedBlockNotAllowedInMethod),
                     ParserStrings.NamedBlockNotAllowedInMethod);
-            }
-
-            if (functionMemberAst.IsConstructor && functionMemberAst.ReturnType != null)
-            {
-                _parser.ReportError(functionMemberAst.ReturnType.Extent,
-                    nameof(ParserStrings.ConstructorCantHaveReturnType),
-                    ParserStrings.ConstructorCantHaveReturnType);
             }
 
             // Analysis determines if all paths return and do data flow for variables.

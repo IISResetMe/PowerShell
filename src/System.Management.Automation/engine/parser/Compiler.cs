@@ -2701,7 +2701,13 @@ namespace System.Management.Automation.Language
             // This is a short term solution - all error messages produced by creating the types should happen
             // at parse time, not runtime.
             var parser = new Parser();
-            var assembly = TypeDefiner.DefineTypes(parser, rootForDefiningTypes, typeAsts);
+            Func<Parser, Ast, TypeDefinitionAst[],Assembly> defineTypes = 
+                ExperimentalFeature.IsEnabled("PSTypeInterfaceSupport") 
+                    ? TypeDefinerExperimental.DefineTypes 
+                    : TypeDefiner.DefineTypes;
+
+            var assembly = defineTypes(parser, rootForDefiningTypes, typeAsts);
+
             if (parser.ErrorList.Count > 0)
             {
                 // wipe types, if there are any errors.
@@ -3424,6 +3430,9 @@ namespace System.Management.Automation.Language
 
         public object VisitFunctionDefinition(FunctionDefinitionAst functionDefinitionAst)
         {
+            if(functionDefinitionAst.IsAbstract)
+                return Expression.Empty();
+                
             return Expression.Call(
                 CachedReflectionInfo.FunctionOps_DefineFunction,
                 s_executionContextParameter,
