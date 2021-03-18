@@ -442,7 +442,8 @@ namespace System.Management.Automation.Language
 
         public override AstVisitAction VisitFunctionDefinition(FunctionDefinitionAst functionDefinitionAst)
         {
-            if (functionDefinitionAst.Parameters != null
+            if (!functionDefinitionAst.IsAbstract 
+                && functionDefinitionAst?.Parameters != null
                 && functionDefinitionAst.Body.ParamBlock != null)
             {
                 _parser.ReportError(functionDefinitionAst.Body.ParamBlock.Extent,

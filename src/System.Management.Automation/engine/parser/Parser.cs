@@ -4436,12 +4436,21 @@ namespace System.Management.Automation.Language
                 {
                     case TokenKind.Static:
                         ReportError(token.Extent,
-                            nameof(ParserStrings.AbstractTypesCantHaveStaticMembers),
-                            ParserStrings.AbstractTypesCantHaveStaticMembers,
-                            token.Text, 
+                            nameof(ParserStrings.AbstractTypesCantHaveStaticOrHiddenMembers),
+                            ParserStrings.AbstractTypesCantHaveStaticOrHiddenMembers,
                             className);
 
                         staticToken = token;
+                        SkipToken();
+                        break;
+
+                    case TokenKind.Hidden:
+                        ReportError(token.Extent,
+                            nameof(ParserStrings.AbstractTypesCantHaveStaticOrHiddenMembers),
+                            ParserStrings.AbstractTypesCantHaveStaticOrHiddenMembers,
+                            className);
+
+                        hiddenToken = token;
                         SkipToken();
                         break;
 
@@ -4511,7 +4520,7 @@ namespace System.Management.Automation.Language
                     initialValueAst = ExpressionRule();
                 }
 
-//                PropertyAttributes attributes = PropertyAttributes.Public;
+                PropertyAttributes attributes = PropertyAttributes.Public | PropertyAttributes.Abstract;
 
                 var endExtent = initialValueAst != null ? initialValueAst.Extent : varToken.Extent;
                 Token terminatorToken = PeekToken();
@@ -4533,7 +4542,7 @@ namespace System.Management.Automation.Language
                 if (!string.IsNullOrEmpty(varToken.Name))
                 {
                     return new PropertyMemberAst(ExtentOf(startExtent, endExtent), varToken.Name,
-                        typeConstraint, attributeList, PropertyAttributes.Public, null);
+                        typeConstraint, attributeList, attributes, null);
                 }
                 else
                 {
@@ -4553,7 +4562,7 @@ namespace System.Management.Automation.Language
                 SkipToken();
                 var functionDefinition = MethodDeclarationRule(token, className, false, true) as FunctionDefinitionAst;
 
-                if (functionDefinition == null)
+                if (functionDefinition == null || staticToken != null || hiddenToken != null)
                 {
                     // TODO: better error recovery - shouldn't assume this was the last class member
                     Diagnostics.Assert(ErrorList.Count > 0, "Should be an error if we don't have a function");
@@ -4570,15 +4579,7 @@ namespace System.Management.Automation.Language
 #endif
                 attributes |= MethodAttributes.Abstract;
 
-                if (staticToken != null)
-                {
-                    attributes |= MethodAttributes.Static;
-                }
-
-                if (hiddenToken != null)
-                {
-                    attributes |= MethodAttributes.Hidden;
-                }
+                SkipNewlinesAndSemicolons();
 
                 return new FunctionMemberAst(ExtentOf(startExtent, functionDefinition), functionDefinition, typeConstraint, attributeList, attributes);
             }

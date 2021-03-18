@@ -3026,6 +3026,9 @@ namespace System.Management.Automation.Language
 
         /// <summary>The property is a hidden.</summary>
         Hidden = 0x40,
+
+        /// <summary>The property is abstract</summary>
+        Abstract = 0x80,
     }
 
     /// <summary>
