@@ -302,7 +302,7 @@ namespace System.Management.Automation.Language
                     return typeName.GetReflectionType();
                 }
             }
-            
+
             private readonly Parser _parser;
             internal readonly TypeDefinitionAst _typeDefinitionAst;
             internal readonly TypeBuilder _typeBuilder;
@@ -328,7 +328,7 @@ namespace System.Management.Automation.Language
                 _parser = parser;
                 _typeDefinitionAst = typeDefinitionAst;
 
-                List<Type> interfaces;
+                List<InterfaceExpression> interfaces;
                 var baseClass = this.GetBaseTypes(parser, typeDefinitionAst, out interfaces);
 
                 _typeBuilder = module.DefineType(typeName, Reflection.TypeAttributes.Class | Reflection.TypeAttributes.Public, baseClass, interfaces.ToArray());
@@ -354,11 +354,34 @@ namespace System.Management.Automation.Language
             private Type GetBaseTypes(
                 Parser parser, 
                 TypeDefinitionAst typeDefinitionAst, 
-                out List<Type> interfaces)
+                out List<InterfaceExpression> interfaces)
             {
                 // Define base types and report errors.
                 Type baseClass = null;
-                interfaces = new List<Type>();
+                interfaces = new List<InterfaceExpression>();
+
+                bool TryGetInterface(TypeConstraintAst ast, out InterfaceExpression interfaceExpression)
+                {
+                    interfaceExpression = new InterfaceExpression(ast);
+
+                    // Is the type-name generic (does it have [] brackets with type args?)
+                    if (ast.TypeName.IsGeneric && ast.TypeName is GenericTypeName genericTypeName)
+                    {
+                        // ... and is the underlying generic type definition an interface
+                        if (genericTypeName.TypeName.GetReflectionType().IsInterface)
+                        {
+                            return true;
+                        }
+                    }
+                    // .. or is it a regular non-generic interface?
+                    else if (ast.TypeName.GetReflectionType()?.IsInterface ?? false)
+                    {
+                        return true;
+                    }
+
+                    interfaceExpression = null;
+                    return false;
+                }
 
                 // Default base class is System.Object and it has a default ctor.
                 _baseClassHasDefaultCtor = true;
@@ -410,7 +433,8 @@ namespace System.Management.Automation.Language
                             else if (baseClass.IsInterface)
                             {
                                 // First Ast can represent interface as well as BaseClass.
-                                interfaces.Add(baseClass);
+                                if(TryGetInterface(firstBaseTypeAst, out InterfaceExpression ifaceexpr))
+                                    interfaces.Add(ifaceexpr);
                                 baseClass = null;
                             }
                         }
