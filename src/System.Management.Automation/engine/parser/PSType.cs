@@ -267,6 +267,42 @@ namespace System.Management.Automation.Language
 
         private class DefineTypeHelper
         {
+            private class InterfaceExpression
+            {
+                private TypeConstraintAst ast;
+
+                internal bool IsGeneric => ast?.TypeName.IsGeneric ?? false;
+
+                internal InterfaceExpression(TypeConstraintAst ast)
+                {
+                    this.ast = ast;
+                }
+
+                internal Type ResolveConcreteInterfaceType(TypeBuilder parameter)
+                    => IsGeneric ? ResolveConcreteInterfaceTypeArguments(ast.TypeName, parameter) : ast.TypeName.GetReflectionType();
+
+                private Type ResolveConcreteInterfaceTypeArguments(ITypeName typeName, TypeBuilder parameter)
+                {
+                    var typeArgs = new List<Type>();
+                    if (typeName.IsGeneric && typeName is GenericTypeName genericName)
+                    {
+                        foreach (var typeArg in genericName.GenericArguments)
+                        {
+                            typeArgs.Add(ResolveConcreteInterfaceTypeArguments(typeArg, parameter));
+                        }
+
+                        return genericName.TypeName.GetReflectionType().MakeGenericType(typeArgs.ToArray());
+                    }
+
+                    if (parameter.FullName == typeName.FullName)
+                    {
+                        return parameter;
+                    }
+
+                    return typeName.GetReflectionType();
+                }
+            }
+            
             private readonly Parser _parser;
             internal readonly TypeDefinitionAst _typeDefinitionAst;
             internal readonly TypeBuilder _typeBuilder;
@@ -315,7 +351,10 @@ namespace System.Management.Automation.Language
             /// <param name="typeDefinitionAst"></param>
             /// <param name="interfaces">Return declared interfaces.</param>
             /// <returns></returns>
-            private Type GetBaseTypes(Parser parser, TypeDefinitionAst typeDefinitionAst, out List<Type> interfaces)
+            private Type GetBaseTypes(
+                Parser parser, 
+                TypeDefinitionAst typeDefinitionAst, 
+                out List<Type> interfaces)
             {
                 // Define base types and report errors.
                 Type baseClass = null;
