@@ -3565,6 +3565,24 @@ namespace System.Management.Automation
             return t == typeof(PSMemberInfo) || t == typeof(PSParameterizedProperty);
         }
 
+        private static bool IsExternalInit(PropertyInfo p)
+        {
+            if(p.SetMethod is MethodInfo setter)
+            {
+                foreach(var rcm in setter.ReturnParameter.GetRequiredCustomModifiers())
+                {
+                    if (rcm.Namespace == "System.Runtime.CompilerServices" && 
+                        rcm.Name == "IsExternalInit" &&
+                       !rcm.IsNested)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         private T GetDotNetPropertyImpl<T>(object obj, string propertyName, MemberNamePredicate predicate) where T : PSMemberInfo
         {
             bool lookingForProperties = typeof(T).IsAssignableFrom(typeof(PSProperty));
