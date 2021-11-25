@@ -1163,6 +1163,17 @@ namespace System.Management.Automation
         }
 
         /// <summary>
+        /// Gets true if this property can only be set during instantiation of parent object
+        /// </summary>
+        public bool IsInitOnly
+        {
+            get
+            {
+                return adapter.BasePropertyIsInitOnly(this);
+            }
+        }
+
+        /// <summary>
         /// Gets true if this property can be read.
         /// </summary>
         public override bool IsGettable

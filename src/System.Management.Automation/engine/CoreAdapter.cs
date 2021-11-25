@@ -146,6 +146,14 @@ namespace System.Management.Automation
         protected abstract bool PropertyIsGettable(PSProperty property);
 
         /// <summary>
+        /// Returns true if the property is init-only.
+        /// </summary>
+        /// <param name="property">Property to check.</param>
+        /// <returns>True if the property is gettable.</returns>
+        protected virtual bool PropertyIsExternalInit(PSProperty property)
+            => false;
+
+        /// <summary>
         /// Returns the name of the type corresponding to the property's value.
         /// </summary>
         /// <param name="property">PSProperty obtained in a previous GetMember.</param>
@@ -512,6 +520,24 @@ namespace System.Management.Automation
                     e,
                     "CatchFromBasePropertyIsSettable",
                     "CatchFromBasePropertyIsSettableTI",
+                    ExtendedTypeSystem.ExceptionRetrievingPropertyWriteState,
+                    property.Name);
+            }
+        }
+
+        internal bool BasePropertyIsInitOnly(PSProperty property)
+        {
+            try
+            {
+                return this.PropertyIsExternalInit(property);
+            }
+            catch (ExtendedTypeSystemException) { throw; }
+            catch (Exception e)
+            {
+                throw NewException(
+                    e,
+                    "CatchFromBasePropertyIsInitOnly",
+                    "CatchFromBasePropertyIsInitOnlyTI",
                     ExtendedTypeSystem.ExceptionRetrievingPropertyWriteState,
                     property.Name);
             }
@@ -2788,6 +2814,14 @@ namespace System.Management.Automation
                 if (propertySetter != null && (propertySetter.IsPublic || propertySetter.IsFamily))
                 {
                     this.isStatic = propertySetter.IsStatic;
+                    foreach (var rcm in propertySetter.ReturnParameter.GetRequiredCustomModifiers())
+                    {
+                        if (!rcm.IsNested && rcm.Name == "IsExternalInit" && rcm.Namespace == "System.Runtime.CompilerServices")
+                        {
+                            this.initOnly = true;
+                            break;
+                        }
+                    }
                 }
                 else
                 {
@@ -2912,7 +2946,7 @@ namespace System.Management.Automation
                             errType = typeof(object);
                         }
                     }
-                    else if (readOnly)
+                    else if (initOnly || readOnly)
                     {
                         errMessage = ParserStrings.PropertyIsReadOnly;
                     }
@@ -2980,6 +3014,7 @@ namespace System.Management.Automation
             private SetterDelegate _setterDelegate;
 
             internal bool useReflection;
+            internal bool initOnly;
             internal bool readOnly;
             internal bool writeOnly;
             internal bool isStatic;
@@ -3947,6 +3982,10 @@ namespace System.Management.Automation
             {
                 returnValue.Append("set;");
             }
+            else if (PropertyIsExternalInit(property))
+            {
+                returnValue.Append("init;");
+            }
 
             returnValue.Append('}');
             return returnValue.ToString();
@@ -4076,7 +4115,17 @@ namespace System.Management.Automation
         /// <returns>True if the property is settable.</returns>
         protected override bool PropertyIsSettable(PSProperty property)
         {
-            return !((PropertyCacheEntry)property.adapterData).readOnly;
+            return !((PropertyCacheEntry)property.adapterData).readOnly && !((PropertyCacheEntry)property.adapterData).initOnly;
+        }
+
+        /// <summary>
+        /// Returns true if the property is init-only.
+        /// </summary>
+        /// <param name="property">Property to check.</param>
+        /// <returns>True if the property is init-only</returns>
+        protected override bool PropertyIsExternalInit(PSProperty property)
+        {
+            return ((PropertyCacheEntry)property.adapterData).initOnly;
         }
 
         /// <summary>
