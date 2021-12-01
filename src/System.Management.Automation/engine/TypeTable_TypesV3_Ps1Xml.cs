@@ -22,7 +22,7 @@ namespace System.Management.Automation.Runspaces
             #region System.Security.Cryptography.X509Certificates.X509Certificate2
 
             typeName = @"System.Security.Cryptography.X509Certificates.X509Certificate2";
-            typeMembers = _extendedMembers.GetOrAdd(typeName, GetValueFactoryBasedOnInitCapacity(capacity: 3));
+            typeMembers = _extendedMembers.GetOrAdd(typeName, GetValueFactoryBasedOnInitCapacity(capacity: 4));
 
             // Process regular members.
             newMembers.Add(@"EnhancedKeyUsageList");
@@ -58,6 +58,18 @@ namespace System.Management.Automation.Runspaces
                     GetScriptBlock(@"[Microsoft.Powershell.Commands.SendAsTrustedIssuerProperty]::ReadSendAsTrustedIssuerProperty($this)"),
                     GetScriptBlock(@"$sendAsTrustedIssuer = $args[0]
                     [Microsoft.Powershell.Commands.SendAsTrustedIssuerProperty]::WriteSendAsTrustedIssuerProperty($this,$this.PsPath,$sendAsTrustedIssuer)"),
+                    shouldCloneOnAccess: true),
+                typeMembers,
+                isOverride: false);
+
+            newMembers.Add(@"SubjectAlternativeNameList");
+            AddMember(
+                errors,
+                typeName,
+                new PSScriptProperty(
+                    @"SubjectAlternativeNameList",
+                    GetScriptBlock(@"[Microsoft.PowerShell.Commands.SubjectAlternativeNameProperty]::new($this).SubjectAlternativeNames"),
+                    null,
                     shouldCloneOnAccess: true),
                 typeMembers,
                 isOverride: false);

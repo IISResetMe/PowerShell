@@ -3420,6 +3420,44 @@ namespace Microsoft.PowerShell.Commands
     }
 
     /// <summary>
+    /// Class for DNSNameList.
+    /// </summary>
+    public sealed class SubjectAlternativeNameProperty
+    {
+        private readonly List<string> _sanList = new();
+
+        private const string SANExtensionOid = "2.5.29.17";
+
+        /// <summary>
+        /// Get property of SubjectAlternativeNames.
+        /// </summary>
+        public List<string> SubjectAlternativeNames
+        {
+            get
+            {
+                return _sanList;
+            }
+        }
+
+        /// <summary>
+        /// Constructor for DnsNameProperty.
+        /// </summary>
+        public SubjectAlternativeNameProperty(X509Certificate2 cert)
+        {
+            _sanList = new List<string>();
+
+            foreach (X509Extension extension in cert.Extensions)
+            {
+                // Filter to the OID for Subject Alternative Name
+                if (extension.Oid.Value == SANExtensionOid)
+                {
+                    _sanList.Add(extension.Format(true));
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Downlevel helper function to determine if the OS is WIN8 and above.
     /// </summary>
     internal static class DownLevelHelper
