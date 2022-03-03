@@ -120,7 +120,7 @@ namespace Microsoft.PowerShell.Telemetry
 
                 s_telemetryClient = new TelemetryClient(configuration);
                 // Be sure to obscure any information about the client node.
-                s_telemetryClient.Context.Cloud.RoleInstance = string.Empty;
+                s_telemetryClient.Context.Cloud.RoleInstance = Guid.NewGuid().ToString();
                 s_telemetryClient.Context.GetInternalContext().NodeName = string.Empty;
                 s_sessionId = Guid.NewGuid().ToString();
 
