@@ -960,6 +960,83 @@ namespace System.Management.Automation
             }
         }
 
+        /// <summary>
+        /// The implementation of the PowerShell -grab operator.... - mostly re-appropriated from the ReplaceOperator
+        /// </summary>
+        /// <param name="context">The execution context in which to evaluate the expression.</param>
+        /// <param name="errorPosition">The position to use for error reporting.</param>
+        /// <param name="lval">The object from which to grab the values.</param>
+        /// <param name="rval">The pattern to use for extraction.</param>
+        /// <returns>The result of the operator.</returns>
+        internal static object GrabOperator(ExecutionContext context, IScriptExtent errorPosition, object lval, object rval)
+        {
+            // needs some error handling for values that are not strings or Regex instances
+            object pattern = PSObject.Base(rval);
+
+            // attempt an unchecked conversion to Regex, then try a little harder ;-)
+            RegexOptions rreOptions = RegexOptions.IgnoreCase;
+            Regex rr = pattern as Regex;
+            if (rr == null)
+            {
+                try
+                {
+                    // naive conversion didn't work, let's assume it's a string containing the pattern
+                    rr = NewRegex((string)PSObject.ToStringParser(context, pattern), rreOptions);
+                }
+                catch (ArgumentException ae)
+                {
+                    throw InterpreterError.NewInterpreterExceptionWithInnerException(pattern, typeof(RuntimeException),
+                        null, "InvalidRegularExpression", ParserStrings.InvalidRegularExpression, ae, pattern);
+                }
+            }
+
+            // attempt to obtain an enumerator from the rhs
+            // this will allow us to operate on arrays and lists
+            IEnumerator list = LanguagePrimitives.GetEnumerator(lval);
+
+            if (list == null)
+            {
+                // if the rhs operand is _not_ enumerable then we treat it as a string
+                string lvalString = PSObject.ToStringParser(context, lval) ?? string.Empty;
+
+                // run the -match operation
+                var potentialMatch = rr.Match(lvalString);
+                if (potentialMatch.Success) {
+                    // we got a match - if at least 1 capture group was defined and successfully captured a value we'll return that
+                    if (rr.GetGroupNumbers().Length > 1 && potentialMatch.Groups[1].Success) {
+                        return potentialMatch.Groups[1].Value;
+                    }
+
+                    // no captures, return the matched value
+                    return potentialMatch.Value;
+                }
+
+                // no dice
+                return null;
+            }
+            else
+            {
+                // basically the same as above, but for each item in the input list.
+                // collect results to a list and output a simple array at the end
+                List<object> resultList = new List<object>();
+                while (ParserOps.MoveNext(context, errorPosition, list))
+                {
+                    string lvalString = PSObject.ToStringParser(context, ParserOps.Current(errorPosition, list));
+                    var potentialMatch = rr.Match(lvalString);
+                    if (potentialMatch.Success) {
+                        if (hasGroups && potentialMatch.Groups[1].Success) {
+                            resultList.Add(potentialMatch.Groups[1].Value);
+                        }
+                        else {
+                            resultList.Add(potentialMatch.Value);
+                        }
+                    }
+                }
+
+                return resultList.ToArray();
+            }
+        }
+
         private struct ReplaceOperatorImpl
         {
             public static ReplaceOperatorImpl Create(ExecutionContext context, Regex regex, object substitute)

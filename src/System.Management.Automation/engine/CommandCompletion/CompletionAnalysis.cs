@@ -739,6 +739,7 @@ namespace System.Management.Automation
                     case TokenKind.Iin:
                     case TokenKind.Inotin:
                     case TokenKind.Isplit:
+                    case TokenKind.Grab:
                     case TokenKind.Ceq:
                     case TokenKind.Cne:
                     case TokenKind.Cge:

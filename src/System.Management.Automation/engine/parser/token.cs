@@ -428,6 +428,10 @@ namespace System.Management.Automation.Language
         /// <summary>The null conditional index access operator '?[]'.</summary>
         QuestionLBracket = 104,
 
+        /// <summary>The grab operator.</summary>
+
+        Grab = 105,
+
         #endregion Operators
 
         #region Keywords
@@ -881,7 +885,7 @@ namespace System.Management.Automation.Language
             /*     QuestionQuestion */ TokenFlags.BinaryOperator | TokenFlags.BinaryPrecedenceCoalesce,
             /*          QuestionDot */ TokenFlags.SpecialOperator | TokenFlags.DisallowedInRestrictedMode,
             /*     QuestionLBracket */ TokenFlags.None,
-            /*     Reserved slot 7  */ TokenFlags.None,
+            /*                 Grab */ TokenFlags.BinaryOperator | TokenFlags.BinaryPrecedenceComparison | TokenFlags.CaseSensitiveOperator | TokenFlags.DisallowedInRestrictedMode,
             /*     Reserved slot 8  */ TokenFlags.None,
             /*     Reserved slot 9  */ TokenFlags.None,
             /*     Reserved slot 10 */ TokenFlags.None,
@@ -1081,7 +1085,7 @@ namespace System.Management.Automation.Language
             /*     QuestionQuestion */ "??",
             /*          QuestionDot */ "?.",
             /*     QuestionLBracket */ "?[",
-            /*    Reserved slot 7   */ string.Empty,
+            /*                 Grab */ "-grab",
             /*    Reserved slot 8   */ string.Empty,
             /*    Reserved slot 9   */ string.Empty,
             /*    Reserved slot 10  */ string.Empty,

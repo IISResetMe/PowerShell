@@ -330,6 +330,9 @@ namespace System.Management.Automation.Language
         internal static readonly MethodInfo Parser_ScanNumber =
             typeof(Parser).GetMethod(nameof(Parser.ScanNumber), StaticFlags);
 
+        internal static readonly MethodInfo ParserOps_GrabOperator =
+            typeof(ParserOps).GetMethod(nameof(ParserOps.GrabOperator), StaticFlags);
+
         internal static readonly MethodInfo ParserOps_ContainsOperatorCompiled =
             typeof(ParserOps).GetMethod(nameof(ParserOps.ContainsOperatorCompiled), StaticFlags);
 
@@ -5945,6 +5948,13 @@ namespace System.Management.Automation.Language
                         ExpressionCache.Constant(false));
                 case TokenKind.QuestionQuestion:
                     return Coalesce(lhs, rhs);
+                case TokenKind.Grab:
+                    return Expression.Call(
+                        CachedReflectionInfo.ParserOps_GrabOperator,
+                        s_executionContextParameter,
+                        Expression.Constant(binaryExpressionAst.ErrorPosition),
+                        lhs.Cast(typeof(object)),
+                        rhs.Cast(typeof(object)));
             }
 
             throw new InvalidOperationException("Unknown token in binary operator.");
