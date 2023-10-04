@@ -6187,12 +6187,12 @@ namespace System.Management.Automation.Language
                     return ExpressionCache.NullConstant;
                 }
 
-                if (varPath.UnqualifiedPath.Equals(SpecialVariables.True, StringComparison.OrdinalIgnoreCase))
+                if (varPath.UnqualifiedPath.Equals(SpecialVariables.True, StringComparison.OrdinalIgnoreCase) || varPath.UnqualifiedPath.Equals("aye", StringComparison.OrdinalIgnoreCase))
                 {
                     return ExpressionCache.Constant(true);
                 }
 
-                if (varPath.UnqualifiedPath.Equals(SpecialVariables.False, StringComparison.OrdinalIgnoreCase))
+                if (varPath.UnqualifiedPath.Equals(SpecialVariables.False, StringComparison.OrdinalIgnoreCase) || varPath.UnqualifiedPath.Equals("naw", StringComparison.OrdinalIgnoreCase))
                 {
                     return ExpressionCache.Constant(false);
                 }
