@@ -53,6 +53,11 @@ namespace Microsoft.PowerShell.Commands
         public string Path { get; set; }
 
         /// <summary>
+        /// Gets or sets the requested JSON comment handling behaivor. 
+        /// </summary>
+        public SwitchParameter IgnoreComments { get; set; }
+
+        /// <summary>
         /// Gets or sets JSON literal file path to be validated.
         /// </summary>
         [Parameter(Position = 0, Mandatory = true, ValueFromPipelineByPropertyName = true, ParameterSetName = JsonLiteralPathParameterSet)]
@@ -100,9 +105,9 @@ namespace Microsoft.PowerShell.Commands
         #endregion
 
         #region Private Members
-
         private bool _isLiteralPath = false;
         private JsonSchema _jschema;
+        private JsonDocumentOptions _documentOptions;
 
         #endregion
 
@@ -200,6 +205,8 @@ namespace Microsoft.PowerShell.Commands
                 Exception exception = new(TestJsonCmdletStrings.InvalidJsonSchema, e);
                 ThrowTerminatingError(new ErrorRecord(exception, "InvalidJsonSchema", ErrorCategory.InvalidData, resolvedpath));
             }
+
+            _documentOptions = new JsonDocumentOptions { CommentHandling = IgnoreComments.IsPresent ? JsonCommentHandling.Skip : JsonCommentHandling.Disallow };
         }
 
         /// <summary>
@@ -235,7 +242,7 @@ namespace Microsoft.PowerShell.Commands
             try
             {
 
-                var parsedJson = JsonNode.Parse(jsonToParse);
+                var parsedJson = JsonNode.Parse(jsonToParse, null, _documentOptions);
 
                 if (_jschema != null)
                 {
