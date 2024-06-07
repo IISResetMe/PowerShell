@@ -79,6 +79,8 @@ namespace System.Management.Automation
 
         private SessionStateScope _scriptScope;
 
+        private PSTraceSource _tracer = PSTraceSource.GetTracer("SessionStateScope", "Scoped item storage");
+
         /// <summary>
         /// The version of strict mode for the interpreter.
         /// </summary>
@@ -1249,6 +1251,7 @@ namespace System.Management.Automation
                 name != null,
                 "The caller should verify the name");
 
+            _tracer.WriteLine("Setting {0} {1}", function.IsFilter ? "filter" : "function", name);
             Dictionary<string, FunctionInfo> functionInfos = GetFunctions();
             FunctionInfo result;
 
@@ -1268,6 +1271,8 @@ namespace System.Management.Automation
                 {
                     GetAllScopeFunctions()[name] = result;
                 }
+
+                _tracer.WriteLine("result = {0}", result);
 
                 return result;
             }
@@ -1343,6 +1348,45 @@ namespace System.Management.Automation
             }
 
             return result;
+        }
+
+        public class SetFunctionEventArgs : FunctionRegistrationEventArgs
+        {
+            public SetFunctionEventArgs(string name, ScriptBlock scriptBlock, CommandOrigin origin, FunctionInfo function, FunctionRegistrationType type)
+                : base(name, scriptBlock, origin, function)
+            {
+                Type = type;
+            }
+        }
+
+        [Flags()]
+        public enum FunctionRegistrationType
+        {
+            None = 0x0,
+            New = 0x1,
+            Updated = 0x2,
+            Register = New | Updated
+        }
+
+        public abstract class FunctionRegistrationEventArgs : EventArgs
+        {
+            public string Name;
+            public ScriptBlock ScriptBlock;
+            public CommandOrigin Origin;
+            public FunctionInfo Result;
+            public FunctionRegistrationType Type = FunctionRegistrationType.None;
+
+            protected FunctionRegistrationEventArgs(
+                string name,
+                ScriptBlock scriptBlock,
+                CommandOrigin origin,
+                FunctionInfo function)
+            {
+                Name = name;
+                ScriptBlock = scriptBlock;
+                Origin = origin;
+                Result = function;
+            }
         }
 
         /// <summary>

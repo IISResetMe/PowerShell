@@ -3,6 +3,7 @@
 
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Management.Automation.Language;
 using System.Management.Automation.Runspaces;
 using System.Management.Automation.Security;
@@ -313,9 +314,10 @@ namespace System.Management.Automation
 
             var functionInfo = searcher.InitialScope.SetFunction(name, function, null, options, false, origin, ExecutionContext);
 
+            List<AliasInfo> aliases = new List<AliasInfo>();
             foreach (var aliasName in GetFunctionAliases(function.Ast as IParameterMetadataProvider))
             {
-                searcher.InitialScope.SetAliasValue(aliasName, name, ExecutionContext, false, origin);
+                aliases.Add(searcher.InitialScope.SetAliasValue(aliasName, name, ExecutionContext, false, origin));
             }
 
             return functionInfo;

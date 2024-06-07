@@ -29,6 +29,8 @@ namespace Microsoft.PowerShell.Commands
         /// </summary>
         public const string ProviderName = "Function";
 
+        private static PSTraceSource s_tracer = PSTraceSource.GetTracer(nameof(FunctionProvider), "The Function provider.");
+
         #region Constructor
 
         /// <summary>

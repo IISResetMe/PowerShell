@@ -1836,6 +1836,11 @@ namespace System.Management.Automation
         internal const string OnScriptBlockInvoke = "PowerShell.OnScriptBlockInvoke";
 
         /// <summary>
+        /// Called during function registration
+        /// </summary>
+        public const string OnSetFunctionRaw = "PowerShell.OnSetFunctionRaw";
+
+        /// <summary>
         /// Called during scriptblock invocation.
         /// </summary>
         internal const string GetCommandInfoParameterMetadata = "PowerShell.GetCommandInfoParameterMetadata";
