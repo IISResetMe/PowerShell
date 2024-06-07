@@ -3516,7 +3516,12 @@ namespace System.Management.Automation
             return result.ToArray();
         }
 
-        internal static object AddObject(ExecutionContext context, IEnumerator lhs, object rhs)
+        internal static object AddObjectToList(ExecutionContext context, IList lhs, object rhs)
+        {
+            return AddObject(context, lhs.GetEnumerator(), rhs, lhs.Count);
+        }
+
+        internal static object AddObject(ExecutionContext context, IEnumerator lhs, object rhs, int sizeHint = 0)
         {
             var fakeEnumerator = lhs as NonEnumerableObjectEnumerator;
             if (fakeEnumerator != null)
@@ -3525,6 +3530,10 @@ namespace System.Management.Automation
             }
 
             var result = new List<object>();
+
+            if (sizeHint > 0) {
+                result.EnsureCapacity(sizeHint + 1);
+            }
 
             while (MoveNext(context, lhs))
             {

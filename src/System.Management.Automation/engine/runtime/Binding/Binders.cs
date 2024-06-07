@@ -2719,11 +2719,21 @@ namespace System.Management.Automation.Language
                 }
                 else
                 {
-                    // Adding 1 item to a list
-                    call = Expression.Call(CachedReflectionInfo.EnumerableOps_AddObject,
-                                           ExpressionCache.GetExecutionContextFromTLS,
-                                           lhsEnumerator.Expression.Cast(typeof(IEnumerator)),
-                                           arg.Expression.Cast(typeof(object)));
+                    if (target.LimitType.GetInterface(typeof(IList).FullName) is not null) {
+                        // Adding 1 item to a list
+                        call = Expression.Call(CachedReflectionInfo.EnumerableOps_AddObjectToList,
+                                            ExpressionCache.GetExecutionContextFromTLS,
+                                            target.Expression.Cast(typeof(IList)),
+                                            arg.Expression.Cast(typeof(object)));
+                    }
+                    else {
+
+                        // Adding 1 item to an opaque enumerable
+                        call = Expression.Call(CachedReflectionInfo.EnumerableOps_AddObject,
+                                            ExpressionCache.GetExecutionContextFromTLS,
+                                            lhsEnumerator.Expression.Cast(typeof(IEnumerator)),
+                                            arg.Expression.Cast(typeof(object)));
+                    }
                 }
 
                 return new DynamicMetaObject(call, target.CombineRestrictions(arg));

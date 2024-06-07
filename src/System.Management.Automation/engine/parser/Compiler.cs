@@ -105,6 +105,9 @@ namespace System.Management.Automation.Language
         internal static readonly MethodInfo EnumerableOps_AddEnumerable =
             typeof(EnumerableOps).GetMethod(nameof(EnumerableOps.AddEnumerable), StaticFlags);
 
+        internal static readonly MethodInfo EnumerableOps_AddObjectToList =
+            typeof(EnumerableOps).GetMethod(nameof(EnumerableOps.AddObjectToList), StaticFlags);
+
         internal static readonly MethodInfo EnumerableOps_AddObject =
             typeof(EnumerableOps).GetMethod(nameof(EnumerableOps.AddObject), StaticFlags);
 
