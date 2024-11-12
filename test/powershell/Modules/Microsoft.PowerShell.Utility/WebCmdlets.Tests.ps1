@@ -741,6 +741,7 @@ Describe "Invoke-WebRequest tests" -Tags "Feature", "RequireAdminOnWindows" {
 
     # Validate all available user agents for Invoke-WebRequest
     $agents = @{
+        PowerShell       = "PowerShell"
         InternetExplorer = "MSIE 9.0"
         Chrome           = "Chrome"
         Opera            = "Opera"

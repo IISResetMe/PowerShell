@@ -22,6 +22,11 @@ namespace Microsoft.PowerShell.Commands
         internal static string UserAgent => string.Create(CultureInfo.InvariantCulture, $"{Compatibility} ({PlatformName}; {OS}; {Culture}) {App}");
 
         /// <summary>
+        /// Useragent string for PowerShell WebRequest Cmdlets
+        /// </summary>
+        public static string PowerShell => UserAgent;
+
+        /// <summary>
         /// Useragent string for InternetExplorer (9.0).
         /// </summary>
         public static string InternetExplorer => string.Create(CultureInfo.InvariantCulture, $"{Compatibility} (compatible; MSIE 9.0; {PlatformName}; {OS}; {Culture})");
